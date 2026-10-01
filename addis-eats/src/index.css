@@ -207,7 +207,7 @@ body.dark-theme {
       rgba(62, 0, 12, 0.45), 
       rgba(62, 0, 12, 0.45)
     ), 
-    url('./assets/hamburgers-uhd-4k-wallpaper.jpeg') center/cover no-repeat;
+    url('/assets/hamburgers-uhd-4k-wallpaper.jpeg') center/cover no-repeat;
   color: var(--color-hero-text);
   text-align: center;
   margin-top: 60px;
@@ -221,7 +221,7 @@ body.dark-theme #section-hero {
       rgba(20, 18, 16, 0.45), 
       rgba(20, 18, 16, 0.45)
     ), 
-    url('./assets/hamburgers-uhd-4k-wallpaper.jpeg') center/cover no-repeat;
+    url('/assets/hamburgers-uhd-4k-wallpaper.jpeg') center/cover no-repeat;
 }
 
 #hero-title {
