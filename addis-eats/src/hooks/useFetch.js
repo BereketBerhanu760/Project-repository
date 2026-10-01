@@ -24,15 +24,6 @@ export function useFetch(url) {
       setError('');
 
       try {
-        if (url === '/dishes.json') {
-          const storedMenu = readStoredMenu();
-
-          if (storedMenu.length > 0) {
-            if (!ignore) setData(storedMenu);
-            return;
-          }
-        }
-
         const response = await fetch(url);
         if (!response.ok) throw new Error('Unable to fetch data');
 
@@ -49,6 +40,17 @@ export function useFetch(url) {
           }
         }
       } catch (err) {
+        if (url === '/dishes.json') {
+          const storedMenu = readStoredMenu();
+
+          if (!ignore && storedMenu.length > 0) {
+            setData(storedMenu);
+          } else if (!ignore) {
+            setError(err.message);
+          }
+          return;
+        }
+
         if (!ignore) setError(err.message);
       } finally {
         if (!ignore) setLoading(false);
