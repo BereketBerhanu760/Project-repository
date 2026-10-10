@@ -1,31 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDish } from "@/app/menu/data";
-import { getCart } from "@/lib/cart";
-import { isSecureRequest } from "@/lib/session";
-
-const cartCookieOptions = {
-  httpOnly: true,
-  sameSite: "lax",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 7,
-};
-
-async function saveCart(cart) {
-  const cookieStore = await cookies();
-  if (cart.length === 0) {
-    cookieStore.delete("cart");
-    return;
-  }
-
-  cookieStore.set("cart", JSON.stringify(cart), {
-    ...cartCookieOptions,
-    secure: await isSecureRequest(),
-  });
-}
+import { getCart, saveCart } from "@/lib/cart";
 
 export async function addToCart(formData) {
   const dishId = formData.get("dishId");

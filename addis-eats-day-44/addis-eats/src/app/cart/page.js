@@ -2,6 +2,13 @@ import Link from "next/link";
 import { getCart } from "@/lib/cart";
 import { removeFromCart } from "./actions";
 
+export const metadata = {
+    title: "Your cart",
+    description: "Review the Ethiopian dishes in your Addis Eats cart before continuing to checkout.",
+    alternates: { canonical: "/cart" },
+    robots: { index: false, follow: false },
+};
+
 export default async function CartPage() {
     const items = await getCart();
     const total = items.reduce((sum, item) => sum + item.subtotal, 0);

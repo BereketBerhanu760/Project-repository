@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import DishList from "./DishList";
+import { fetcher } from "@/lib/fetcher";
 
 function pageHref(page, category, query) {
   const params = new URLSearchParams();
@@ -47,7 +48,7 @@ export default function SearchBox({ category, page, initialData }) {
   const key = query
     ? `/api/dishes?category=${encodeURIComponent(category)}&page=${visiblePage}&q=${encodeURIComponent(query)}`
     : null;
-  const { data, error, isValidating } = useSWR(key, {
+  const { data, error, isValidating } = useSWR(key, fetcher, {
     fallbackData: query === initialQuery.trim() ? initialData : undefined,
     keepPreviousData: true,
   });

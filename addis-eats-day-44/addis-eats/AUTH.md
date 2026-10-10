@@ -16,6 +16,14 @@ Production must define:
 
 The app intentionally has no public registration flow. Development demo accounts are not enabled in production.
 
+## Protection decisions
+
+| Layer | Protected surface and decision | What it proves |
+| --- | --- | --- |
+| Middleware | Redirect unauthenticated `/checkout/:path*` and `/Orders/:path*` requests to sign-in; discard invalid session cookies. | Direct navigation cannot reach protected pages without a verified signed session. |
+| Server page | Checkout and order tracking independently verify the session; order history and tracking lookups are scoped to the session owner. `/kitchen` requires the staff role before reading all orders. | A middleware bypass or a different account cannot expose another user's orders or staff data. |
+| Server action/API | `placeOrder`, `cancelOrder`, and order API handlers re-read the session at the write/read boundary; cancellation and order reads require matching ownership. | Stale pages and forged requests cannot place/cancel/read orders as an unauthenticated or other user. |
+
 ## Session and authorization
 
 Successful sign-in sets a signed session cookie with an eight-hour expiry. The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Sign-out clears it. Return destinations are restricted to local paths; external, protocol-relative, backslash-containing, and control-character destinations are rejected.
@@ -24,11 +32,13 @@ Middleware covers `/checkout/:path*` and `/Orders/:path*`. The pages also check 
 
 ## Security checks performed
 
-- After sign-in, `document.cookie` was empty in the browser; the session cookie is not readable by client-side JavaScript.
-- A sign-in link containing `next=https://evil.example/` returned to `/checkout`, not to the external host.
-- A different signed-in account received `404` for the customer's order from both the order API and tracking page.
-- After signing out in one tab, submitting the stale checkout page's `placeOrder` action returned “Sign in before placing an order.” The stale page's cancel action did not remove the test order; the server action requires a session and verifies ownership.
-- Customer access to `/kitchen` was denied; a staff account could view the kitchen page.
-- Unauthenticated order creation through the API was rejected.
+| Attack attempt | Expected protection | Observed result |
+| --- | --- | --- |
+| Read the session from browser JavaScript after sign-in. | HttpOnly session cookie. | `document.cookie` did not expose the session cookie. |
+| Sign in with `next=https://evil.example/`. | Local-only return destination validation. | Returned to `/checkout`; did not navigate to the external host. |
+| Read another account's order through the API and tracking route. | Owner-scoped lookup with not-found for non-owned records. | The other account received `404` from both surfaces. |
+| Submit stale checkout place/cancel actions after signing out. | Session and owner checks inside each server action. | Place action returned “Sign in before placing an order”; cancel action left the order unchanged. |
+| Open `/kitchen` as a customer. | Server-side staff-role check before listing orders. | Customer was denied; staff account could access the kitchen page. |
+| Create an order through the API without a session. | API handler session check. | Request was rejected with `401`. |
 
 To reproduce the browser checks, start the app with `npm run dev`, sign in using the development accounts, and inspect the protected routes and order APIs. Never use the demo credentials in production.

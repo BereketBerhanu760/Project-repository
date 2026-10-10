@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { authenticate } from "@/lib/auth";
 import { clearSession, setSession } from "@/lib/session";
+import { claimAnonymousCart } from "@/lib/cart";
 import { getSafeReturnTo } from "@/lib/safe-return-to";
 
 export async function signIn(_previousState, formData) {
@@ -20,6 +21,7 @@ export async function signIn(_previousState, formData) {
   }
 
   await setSession(user);
+  await claimAnonymousCart(user.id);
   redirect(returnTo);
 }
 

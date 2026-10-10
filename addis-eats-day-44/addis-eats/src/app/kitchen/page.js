@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
-import SignOutForm from "@/app/SignOutForm";
 import { listOrders } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Kitchen orders",
+  description: "Staff view for preparing and checking incoming Addis Eats orders.",
+  alternates: { canonical: "/kitchen" },
+  robots: { index: false, follow: false },
+};
 
 export default async function KitchenPage() {
   const session = await getSession();
@@ -18,7 +23,6 @@ export default async function KitchenPage() {
         <p className="eyebrow">Staff only · Kitchen</p>
         <h1>Incoming orders.</h1>
         <p>Signed in as {session.username}.</p>
-        <SignOutForm />
       </section>
       <section className="order-history" aria-label="Kitchen order list">
         {orders.length ? orders.map((order) => (

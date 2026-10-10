@@ -2,17 +2,35 @@
 
 Addis Eats is a Next.js App Router restaurant ordering capstone. The menu and dish pages render on the server; checkout uses a server action with progressive enhancement, and the JSON API shares its validation and order store.
 
-The production server is available at `http://localhost:3000`. Local `.env*` files (except the committed `.env.example`), `.next`, and `.data` are ignored. Orders are stored locally in `.data/orders.json`; use a durable database/volume for serverless hosting. The cart is kept in an HTTP-only cookie and validated against menu data whenever it is read.
+**Deployed site:** [https://project-repository-z5ez.vercel.app](https://project-repository-z5ez.vercel.app)
+
+Orders are stored locally in `.data/orders.json`; use a durable database or volume for serverless hosting. Cart contents are kept in HTTP-only cookies, validated against menu data, and isolated by signed-in account; an anonymous cart is claimed by the first account that signs in.
 
 Authentication uses signed eight-hour HTTP-only session cookies. In development,
 sign in with `customer` / `AddisEatsDemo!42` or `staff` / `KitchenDemo!42`.
 Production requires server-only `AUTH_SECRET` and `AUTH_USERS` configuration;
 see [AUTH.md](AUTH.md) for setup and the security checks.
 
-Copy `.env.example` to `.env.local` for local configuration. Keep real values in
-the ignored local env file; never expose authentication values with a
-`NEXT_PUBLIC_` prefix. Performance code changes and the intentionally omitted
-browser measurements are documented in [PERF.md](PERF.md).
+The development server supplies demo accounts when no `AUTH_USERS` is set. For
+configured local accounts, copy `.env.example` to `.env.local` and replace the
+dummy values. Keep real values in the ignored local env file; never expose
+authentication values with a `NEXT_PUBLIC_` prefix. See [PERF.md](PERF.md) for
+the performance budget and measurement status.
+
+## Run from a fresh clone
+
+```powershell
+cd module-03-react-nextjs/Days/Day_45/addis-eats
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000`. Without a local `AUTH_USERS` override, use
+`customer` / `AddisEatsDemo!42` or `staff` / `KitchenDemo!42`. For the production
+server, set production `AUTH_SECRET` and `AUTH_USERS` values before running
+`npm run build` and `npm start`; demo accounts are development-only. The
+deployment URL above is already live; deploy code changes through the linked
+Vercel project with the required production environment variables.
 
 ## API
 
@@ -35,7 +53,7 @@ while it completes.
 
 ## Ordering Flow
 
-Open a dish detail page and submit **Add to cart**. The server validates the dish and stores it in the cart cookie, then opens `/cart`. Add more dishes from the menu, remove line items, and select **Continue to checkout**. Sign in to place an order. Checkout displays menu-derived totals; its server action ignores client-supplied item/price values, validates customer fields, saves the order for the signed-in account, and clears the cart.
+Open a dish detail page and submit **Add to cart**. The server validates the dish and stores it in the current anonymous or account-specific cart, then opens `/cart`. Add more dishes from the menu, remove line items, and select **Continue to checkout**. Sign in to place an order. Checkout displays only the signed-in account's cart and recent orders; its server action ignores client-supplied item/price values, validates customer fields, saves the order for that account, and clears only that account's cart.
 
 ## Production Build Output
 

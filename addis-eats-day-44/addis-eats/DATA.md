@@ -7,8 +7,8 @@ uses `category`, `q`, and `page`, so a filtered page can be bookmarked and share
 
 | Query | SWR key | Refresh and cache rule | Reason |
 | --- | --- | --- | --- |
-| Menu search/page | `/api/dishes?category={category}&page={page}&q={query}` | No polling; revalidate on mount/focus; `keepPreviousData: true`; the key is `null` when the trimmed search is empty. | Menu data is served from the page's server-rendered `fallbackData`; searches only start after a 300 ms debounce. Keeping previous results visible avoids an empty flash while the next key loads. |
-| Order status | `/api/orders/{id}` | `refreshInterval: 5000` ms; server-rendered order data is provided as `fallbackData`. | Order status is the only frequently changing data, and polling every five seconds is frequent enough for a useful tracking screen without unnecessary requests or an initial spinner. |
+| Menu search/page | Client SWR over `/api/dishes?category={category}&page={page}&q={query}`; initial query/page is calculated by `getDishPage` on the server. | SWR key includes category, page, and query; `null` when the trimmed query is empty. Server response seeds `fallbackData`; no polling; revalidate on mount/focus; `keepPreviousData: true`; input is debounced 300 ms. | Shareable URL state and server data render immediately; distinct query keys prevent stale cross-query responses, debounce avoids request-per-keystroke, and previous results avoid a blank while refreshing. |
+| Order status | Client SWR over `/api/orders/{id}`; initial owner-scoped record is loaded by the server page. | Order ID is the SWR key; server response seeds `fallbackData`; poll every 5,000 ms; SWR deduplicates same-key requests for its default interval. | Status changes over time, so bounded polling updates the view while server seeding avoids a loading flash. The API rechecks session ownership on every poll. |
 
 The root SWR provider supplies `src/lib/fetcher.js` to every query. It rejects
 non-OK HTTP responses, so SWR exposes failures instead of treating error payloads

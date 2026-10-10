@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { orderSchema, flattenZodErrors } from "@/lib/schema";
-import { getCart } from "@/lib/cart";
+import { getCart, saveCart } from "@/lib/cart";
 import { removeOrderForOwner, saveOrder } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 
@@ -54,7 +53,7 @@ export async function placeOrder(prevState, formData) {
     createdAt: new Date().toISOString(),
   });
 
-  (await cookies()).delete("cart");
+  await saveCart([]);
   revalidatePath("/cart");
   revalidatePath("/checkout");
 

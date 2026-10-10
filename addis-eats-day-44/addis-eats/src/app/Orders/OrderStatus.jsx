@@ -1,8 +1,10 @@
 "use client";
+
 import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
 export default function OrderStatus({ id, initialData }) {
-  const { data, error } = useSWR(`/api/orders/${id}`, {
+  const { data, error } = useSWR(`/api/orders/${id}`, fetcher, {
     fallbackData: initialData,
     refreshInterval: 5000,
   });

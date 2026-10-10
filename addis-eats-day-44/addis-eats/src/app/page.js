@@ -1,6 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 
+export const metadata = {
+  title: "Ethiopian food, delivered",
+  description: "Discover Ethiopian favorites made for sharing, from slow-cooked Doro Wot to bright, gently spiced lentils.",
+  alternates: { canonical: "/" },
+};
+
 export default function Home() {
   return (
     <main className="main">

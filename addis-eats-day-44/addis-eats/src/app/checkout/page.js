@@ -6,8 +6,14 @@ import { getDish } from "@/app/menu/data";
 import { listOrdersForOwner } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import SignOutForm from "@/app/SignOutForm";
 import { appendSearchParams } from "@/lib/safe-return-to";
+
+export const metadata = {
+  title: "Checkout",
+  description: "Enter your delivery details to place an Addis Eats order.",
+  alternates: { canonical: "/checkout" },
+  robots: { index: false, follow: false },
+};
 
 export default async function CheckoutPage({ searchParams }) {
   const cart = await getCart();
@@ -23,7 +29,6 @@ export default async function CheckoutPage({ searchParams }) {
     <main className="main">
       <div className="account-bar">
         <span>Signed in as {session.username}</span>
-        <SignOutForm />
       </div>
       <CheckoutForm items={cart} />
       {orders.length > 0 ? (

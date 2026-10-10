@@ -4,10 +4,19 @@ import OrderStatus from "@/app/Orders/OrderStatus";
 import { getOrderForOwner } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import SignOutForm from "@/app/SignOutForm";
 import { appendSearchParams } from "@/lib/safe-return-to";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const { id } = await params;
+  return {
+    title: "Track your order",
+    description: "Check the latest status of your Addis Eats order.",
+    alternates: { canonical: `/Orders/${id}` },
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function OrderPage({ params, searchParams }) {
   const { id } = await params;
@@ -34,7 +43,6 @@ export default async function OrderPage({ params, searchParams }) {
       <section className="simple-panel order-status-panel">
         <p className="eyebrow">Order tracking</p>
         <p>Signed in as {session.username}.</p>
-        <SignOutForm />
         <h1>Your order is in good hands.</h1>
         <p>Reference: {order.id}</p>
         <p>Placed {new Date(order.createdAt).toLocaleString()}</p>
