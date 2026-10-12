@@ -13,7 +13,7 @@ const geist = localFont({
 });
 
 export const metadata = {
-  metadataBase: new URL(SITE_URL),
+  metadataBase: new URL('https://project-repository-z5ez.vercel.app/'),
   title: {
     default: "Addis Eats | Ethiopian food, delivered",
     template: "%s | Addis Eats",
