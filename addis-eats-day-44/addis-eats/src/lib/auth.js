@@ -4,9 +4,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
 const scrypt = promisify(scryptCallback);
 const userStorePath = join(process.cwd(), ".data", "users.json");
+const usersKey = "addis-eats:users";
 const passwordHashLength = 64;
 let pendingWrite = Promise.resolve();
 
@@ -17,20 +19,15 @@ const developmentUsers = [
 
 function getConfiguredUsers() {
   const configuredUsers = process.env.AUTH_USERS;
-  if (!configuredUsers) {
-    return process.env.NODE_ENV === "production" ? [] : developmentUsers;
-  }
+  if (!configuredUsers) return process.env.NODE_ENV === "production" ? [] : developmentUsers;
 
   let users;
   try {
     users = JSON.parse(configuredUsers);
   } catch {
-    throw new Error("AUTH_USERS must be a JSON array of configured account records.");
+    throw new Error("AUTH_USERS must be a JSON array of account records.");
   }
-
-  if (!Array.isArray(users)) {
-    throw new Error("AUTH_USERS must be a JSON array of configured account records.");
-  }
+  if (!Array.isArray(users)) throw new Error("AUTH_USERS must be a JSON array of account records.");
 
   return users.map((user) => {
     if (
@@ -38,27 +35,18 @@ function getConfiguredUsers() {
       || typeof user.password !== "string"
       || user.password.length < 12
       || !["customer", "staff"].includes(user.role)
-    ) {
-      throw new Error("Each AUTH_USERS entry requires a username, a 12-character password, and a customer or staff role.");
-    }
+    ) throw new Error("Each AUTH_USERS account requires a username, a 12-character password, and a customer or staff role.");
 
     const username = user.username.trim().toLowerCase();
     if (!username) throw new Error("AUTH_USERS usernames must not be empty.");
-
-    return {
-      id: username,
-      username,
-      password: user.password,
-      role: user.role,
-    };
+    return { id: username, username, password: user.password, role: user.role };
   });
 }
 
 function passwordsMatch(candidate, expected) {
   const candidateBytes = Buffer.from(candidate);
   const expectedBytes = Buffer.from(expected);
-  return candidateBytes.length === expectedBytes.length
-    && timingSafeEqual(candidateBytes, expectedBytes);
+  return candidateBytes.length === expectedBytes.length && timingSafeEqual(candidateBytes, expectedBytes);
 }
 
 async function passwordMatches(password, user) {
@@ -67,11 +55,10 @@ async function passwordMatches(password, user) {
     const expected = Buffer.from(user.passwordHash, "hex");
     return candidate.length === expected.length && timingSafeEqual(candidate, expected);
   }
-
   return typeof user.password === "string" && passwordsMatch(password, user.password);
 }
 
-async function readRegisteredUsers() {
+async function readLocalUsers() {
   try {
     return JSON.parse(await readFile(userStorePath, "utf8"));
   } catch (error) {
@@ -80,18 +67,18 @@ async function readRegisteredUsers() {
   }
 }
 
-function serialize(operation) {
-  const result = pendingWrite.then(operation, operation);
-  pendingWrite = result.catch(() => {});
-  return result;
-}
-
-async function writeRegisteredUsers(users) {
+async function writeLocalUsers(users) {
   const directory = join(process.cwd(), ".data");
   await mkdir(directory, { recursive: true });
   const temporaryPath = `${userStorePath}.${randomUUID()}.tmp`;
   await writeFile(temporaryPath, JSON.stringify(users, null, 2), "utf8");
   await rename(temporaryPath, userStorePath);
+}
+
+function serialize(operation) {
+  const result = pendingWrite.then(operation, operation);
+  pendingWrite = result.catch(() => {});
+  return result;
 }
 
 async function hashPassword(password) {
@@ -102,32 +89,49 @@ async function hashPassword(password) {
 
 export async function authenticate(username, password) {
   const normalizedUsername = username.trim().toLowerCase();
-  await pendingWrite;
-  const users = [...getConfiguredUsers(), ...(await readRegisteredUsers())];
-  const user = users.find((account) => account.username === normalizedUsername);
-  if (!user || !(await passwordMatches(password, user))) return null;
+  const configuredUser = getConfiguredUsers().find((user) => user.username === normalizedUsername);
+  if (configuredUser) {
+    return await passwordMatches(password, configuredUser)
+      ? { id: configuredUser.id, username: configuredUser.username, role: configuredUser.role }
+      : null;
+  }
 
+  await pendingWrite;
+  let user;
+  if (getPersistenceMode() === "redis") {
+    const saved = await redisCommand("HGET", usersKey, normalizedUsername);
+    user = saved ? JSON.parse(saved) : null;
+  } else {
+    user = (await readLocalUsers()).find((account) => account.username === normalizedUsername) ?? null;
+  }
+  if (!user || !(await passwordMatches(password, user))) return null;
   return { id: user.id, username: user.username, role: user.role };
 }
 
 export async function registerCustomer(username, password) {
   const normalizedUsername = username.trim().toLowerCase();
+  const configuredUsers = getConfiguredUsers();
+  if (configuredUsers.some((user) => user.username === normalizedUsername)) return null;
   const credentials = await hashPassword(password);
 
   return serialize(async () => {
-    const configuredUsers = getConfiguredUsers();
-    const registeredUsers = await readRegisteredUsers();
-    const usernameTaken = [...configuredUsers, ...registeredUsers]
-      .some((user) => user.username === normalizedUsername);
-    if (usernameTaken) return null;
-
     const user = {
       id: randomUUID(),
       username: normalizedUsername,
       role: "customer",
       ...credentials,
     };
-    await writeRegisteredUsers([...registeredUsers, user]);
+
+    if (getPersistenceMode() === "redis") {
+      const created = await redisCommand("HSETNX", usersKey, normalizedUsername, JSON.stringify(user));
+      return Number(created) === 1
+        ? { id: user.id, username: user.username, role: user.role }
+        : null;
+    }
+
+    const users = await readLocalUsers();
+    if (users.some((account) => account.username === normalizedUsername)) return null;
+    await writeLocalUsers([...users, user]);
     return { id: user.id, username: user.username, role: user.role };
   });
 }

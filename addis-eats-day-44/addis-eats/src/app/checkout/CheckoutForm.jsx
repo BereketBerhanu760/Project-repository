@@ -56,19 +56,19 @@ export default function CheckoutForm({ items }) {
 
       <label>
         Name
-          <input name="name" type="text" autoComplete="name" minLength={2} required />
+        <input name="name" type="text" autoComplete="name" minLength={2} required />
         {state.fieldErrors?.name ? <span>{state.fieldErrors.name}</span> : null}
       </label>
 
       <label>
         Phone
-          <input name="phone" type="tel" autoComplete="tel" required />
+        <input name="phone" type="tel" autoComplete="tel" required />
         {state.fieldErrors?.phone ? <span>{state.fieldErrors.phone}</span> : null}
       </label>
 
       <label>
         Address
-          <textarea name="address" autoComplete="street-address" minLength={10} rows={3} required />
+        <textarea name="address" autoComplete="street-address" minLength={10} rows={3} required />
         {state.fieldErrors?.address ? <span>{state.fieldErrors.address}</span> : null}
       </label>
 
@@ -79,7 +79,7 @@ export default function CheckoutForm({ items }) {
       {state.orderId ? <p className="status">Order reference: {state.orderId}</p> : null}
 
       <button type="submit" disabled={isPending}>
-        {isPending ? "Placing order..." : "Place order"}
+        {isPending ? "Placing order…" : "Place order"}
       </button>
     </form>
   );

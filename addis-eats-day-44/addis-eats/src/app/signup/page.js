@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
 import { getSafeReturnTo } from "@/lib/safe-return-to";
-import { getSession } from "@/lib/session";
 import SignUpForm from "./SignUpForm";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +12,6 @@ export const metadata = {
 export default async function SignUpPage({ searchParams }) {
   const params = await searchParams;
   const next = getSafeReturnTo(params?.next);
-  if (await getSession()) redirect(next);
 
   return (
     <main className="main">

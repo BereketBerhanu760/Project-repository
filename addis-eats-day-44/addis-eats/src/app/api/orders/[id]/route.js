@@ -10,18 +10,8 @@ export async function GET(_request, { params }) {
       ? await getOrderById(id)
       : await getOrderForOwner(id, session.id);
 
-  if (!order) {
-    return Response.json(
-      { error: "Order not found.", status: 404 },
-      { status: 404 }
-    );
-  }
-
+  if (!order) return Response.json({ error: "Order not found.", status: 404 }, { status: 404 });
   return Response.json({
-    order: {
-      id: order.id,
-      status: order.status || "pending",
-      createdAt: order.createdAt,
-    },
+    order: { id: order.id, status: order.status || "pending", createdAt: order.createdAt },
   });
 }

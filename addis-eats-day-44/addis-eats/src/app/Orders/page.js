@@ -34,7 +34,7 @@ export default async function OrdersPage() {
           <article className="order-row" key={order.id}>
             <div>
               <strong>{order.name}</strong>
-              <p>{order.items?.map(({ dishId, quantity }) => `${quantity} × ${getDish(dishId)?.name ?? dishId}`).join(", ") || order.dishId} · ${order.totalETB}</p>
+              <p>{order.items?.map(({ dishId, quantity }) => `${quantity} × ${getDish(dishId)?.name ?? dishId}`).join(", ") || order.dishId} · {order.totalETB} Birr</p>
               {isStaff ? <p>Placed {new Date(order.createdAt).toLocaleString()}</p> : null}
             </div>
             <OrderStatus

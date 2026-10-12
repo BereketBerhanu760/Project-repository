@@ -3,11 +3,6 @@ const developmentSecret = "addis-eats-local-development-session-key";
 function getSecret() {
   const secret = process.env.AUTH_SECRET;
   if (secret && secret.length >= 32) return secret;
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("AUTH_SECRET must be configured with at least 32 characters.");
-  }
-
   return developmentSecret;
 }
 
@@ -58,13 +53,13 @@ export async function verifySessionToken(token) {
     return null;
   }
 
-  const isValid = await globalThis.crypto.subtle.verify(
+  const valid = await globalThis.crypto.subtle.verify(
     "HMAC",
     await signingKey(),
     signatureBytes,
     new TextEncoder().encode(parts[0])
   );
-  if (!isValid) return null;
+  if (!valid) return null;
 
   let session;
   try {
@@ -82,9 +77,7 @@ export async function verifySessionToken(token) {
     || !["customer", "staff"].includes(session.role)
     || !Number.isFinite(session.expiresAt)
     || session.expiresAt <= Date.now()
-  ) {
-    return null;
-  }
+  ) return null;
 
   return session;
 }

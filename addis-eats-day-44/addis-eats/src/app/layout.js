@@ -1,9 +1,7 @@
 import "./globals.css";
-import Link from "next/link";
 import localFont from "next/font/local";
-import { SITE_URL } from "@/lib/site-url";
+import SiteHeader from "./SiteHeader";
 import { getSession } from "@/lib/session";
-import SignOutForm from "./SignOutForm";
 
 const geist = localFont({
   src: "./fonts/Geist-Regular.ttf",
@@ -42,22 +40,7 @@ export default async function RootLayout({ children }) {
     <html lang="en" className={geist.variable}>
       <body>
         <div className="site-shell">
-          <header className="site-header">
-            <Link className="brand" href="/">Addis Eats</Link>
-            <nav className="nav" aria-label="Main navigation">
-              <Link href="/">Home</Link>
-              <Link href="/menu">Menu</Link>
-              {session?.role !== "staff" ? <Link className="cart-link" href="/cart">Cart</Link> : null}
-              {session ? <Link href="/Orders">Orders</Link> : null}
-              {session?.role === "staff" ? <Link href="/kitchen">Admin</Link> : null}
-              {session ? <SignOutForm /> : (
-                <>
-                  <Link href="/signin">Sign in</Link>
-                  <Link href="/signup">Sign up</Link>
-                </>
-              )}
-            </nav>
-          </header>
+          <SiteHeader session={session} />
           {children}
           <footer className="site-footer">Addis Eats · Flavours worth gathering around.</footer>
         </div>

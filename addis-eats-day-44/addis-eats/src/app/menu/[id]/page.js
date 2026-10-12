@@ -49,26 +49,28 @@ export default async function DishPage({ params }) {
       priceCurrency: "ETB",
     },
   };
-  return <main className="main">
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{
-                      __html: JSON.stringify(dishJsonLd).replace(/</g, "\\u003c"),
-                    }}
-                />
-                <article className="detail">
-                    <Link className="text-link" href="/menu">← Back to menu</Link>
-                    <div className="detail-mark">{dish.emoji}</div>
-                    <p className="eyebrow">{dish.category}</p>
-                    <h1>{dish.name}</h1>
-                    <p>{dish.description}</p>
-                    <div className="detail-meta">
-                        <span>{dish.price} Birr</span>
-                        </div>
-                        <form action={addToCart}>
-                            <input type="hidden" name="dishId" value={dish.id} />
-                            <button className="button" type="submit">Add to cart</button>
-                        </form>
-                </article>
-            </main>;
+  return (
+    <main className="main">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(dishJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <article className="detail">
+        <Link className="text-link" href="/menu">← Back to menu</Link>
+        <div className="detail-mark">{dish.emoji}</div>
+        <p className="eyebrow">{dish.category}</p>
+        <h1>{dish.name}</h1>
+        <p>{dish.description}</p>
+        <div className="detail-meta">
+          <span>{dish.price} Birr</span>
+        </div>
+        <form action={addToCart}>
+          <input type="hidden" name="dishId" value={dish.id} />
+          <button className="button" type="submit">Add to cart</button>
+        </form>
+      </article>
+    </main>
+  );
 }

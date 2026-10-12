@@ -2,47 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/session";
-import {
-  deleteAllOrders as clearOrderStore,
-  deleteOrderById,
-  updateOrderStatus as saveOrderStatus,
-} from "@/lib/order-store";
+import { deleteAllOrders as clearOrderStore, deleteOrderById, updateOrderStatus as saveOrderStatus } from "@/lib/order-store";
 
-const orderStatuses = new Set(["pending", "delivering", "received"]);
+const statuses = new Set(["pending", "delivering", "received"]);
 
 export async function updateOrderStatus(formData) {
-  const session = await getSession();
-  if (session?.role !== "staff") return;
-
-  const orderId = formData.get("orderId");
+  if ((await getSession())?.role !== "staff") return;
+  const id = formData.get("orderId");
   const status = formData.get("status");
-  if (typeof orderId !== "string" || !orderId || !orderStatuses.has(status)) return;
-
-  if (!(await saveOrderStatus(orderId, status))) return;
-
+  if (typeof id !== "string" || !id || !statuses.has(status)) return;
+  if (!(await saveOrderStatus(id, status))) return;
   revalidatePath("/kitchen");
   revalidatePath("/Orders");
-  revalidatePath(`/Orders/${orderId}`);
+  revalidatePath(`/Orders/${id}`);
 }
 
 export async function deleteOrder(formData) {
-  const session = await getSession();
-  if (session?.role !== "staff") return;
-
-  const orderId = formData.get("orderId");
-  if (typeof orderId !== "string" || !orderId) return;
-  if (!(await deleteOrderById(orderId))) return;
-
+  if ((await getSession())?.role !== "staff") return;
+  const id = formData.get("orderId");
+  if (typeof id !== "string" || !id || !(await deleteOrderById(id))) return;
   revalidatePath("/kitchen");
   revalidatePath("/Orders");
-  revalidatePath(`/Orders/${orderId}`);
+  revalidatePath(`/Orders/${id}`);
 }
 
 export async function deleteAllOrders() {
-  const session = await getSession();
-  if (session?.role !== "staff") return;
+  if ((await getSession())?.role !== "staff") return;
   if (!(await clearOrderStore())) return;
-
   revalidatePath("/kitchen");
   revalidatePath("/Orders");
 }

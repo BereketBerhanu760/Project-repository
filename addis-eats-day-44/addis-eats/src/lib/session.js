@@ -6,10 +6,6 @@ import { signSessionToken, verifySessionToken } from "@/lib/session-token";
 const sessionCookie = "session";
 const sessionLifetimeSeconds = 60 * 60 * 8;
 
-export function isSecureRequest() {
-  return process.env.NODE_ENV === "production";
-}
-
 export async function setSession(user) {
   const session = {
     id: user.id,
@@ -18,15 +14,13 @@ export async function setSession(user) {
     expiresAt: Date.now() + sessionLifetimeSeconds * 1000,
   };
   const token = await signSessionToken(session);
-
   (await cookies()).set(sessionCookie, token, {
     httpOnly: true,
-    secure: isSecureRequest(),
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: sessionLifetimeSeconds,
   });
-
   return session;
 }
 

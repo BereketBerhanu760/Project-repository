@@ -41,7 +41,7 @@ export default async function CheckoutPage({ searchParams }) {
                 <strong>{order.name}</strong>
                 <p>
                   {order.items?.map(({ dishId, quantity }) => `${quantity} × ${getDish(dishId)?.name ?? dishId}`).join(", ") || order.dishId}
-                  {" · $"}{order.totalETB}
+                  {" · "}{order.totalETB} Birr
                 </p>
               </div>
               <div className="order-actions">
