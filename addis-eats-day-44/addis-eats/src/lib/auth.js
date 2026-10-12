@@ -9,6 +9,7 @@ import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
 const scrypt = promisify(scryptCallback);
 const usersKey = "addis-eats:users";
+const usersCookieName = "addis_users";
 const passwordHashLength = 64;
 let pendingWrite = Promise.resolve();
 
@@ -82,6 +83,36 @@ function getUserStorePaths() {
   };
 }
 
+async function getCookieUsers() {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const raw = cookieStore.get(usersCookieName)?.value;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setCookieUsers(users) {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const compact = users.slice(-5);
+    cookieStore.set(usersCookieName, JSON.stringify(compact), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  } catch {
+    // Non-mutation context
+  }
+}
+
 async function readLocalUsers() {
   const { filePath } = getUserStorePaths();
   try {
@@ -143,6 +174,12 @@ export async function authenticate(username, password) {
       : null;
   }
 
+  // Populate from cookie if available
+  const cookieUsers = await getCookieUsers();
+  for (const u of cookieUsers) {
+    if (u?.username) globalThis.__addisEatsUsers.set(u.username, u);
+  }
+
   if (globalThis.__addisEatsUsers.has(normalizedUsername)) {
     const cachedUser = globalThis.__addisEatsUsers.get(normalizedUsername);
     if (await passwordMatches(password, cachedUser)) {
@@ -188,6 +225,11 @@ export async function registerCustomer(username, password) {
 
     globalThis.__addisEatsUsers.set(normalizedUsername, user);
 
+    // Save to cookie backup for serverless persistence
+    const currentUsers = [...(await readLocalUsers()), ...(await getCookieUsers())];
+    const nextUsers = [...currentUsers.filter((u) => u.username !== normalizedUsername), user];
+    await setCookieUsers(nextUsers);
+
     if (getPersistenceMode() === "redis") {
       try {
         const created = await redisCommand("HSETNX", usersKey, normalizedUsername, JSON.stringify(user));
@@ -199,9 +241,9 @@ export async function registerCustomer(username, password) {
       }
     }
 
-    const users = await readLocalUsers();
-    if (users.some((account) => account.username === normalizedUsername)) return null;
-    await writeLocalUsers([...users, user]);
+    const localUsers = await readLocalUsers();
+    if (localUsers.some((account) => account.username === normalizedUsername)) return null;
+    await writeLocalUsers([...localUsers, user]);
     return { id: user.id, username: user.username, role: user.role };
   });
 }

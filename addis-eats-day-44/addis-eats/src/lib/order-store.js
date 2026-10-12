@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
 const ordersKey = "addis-eats:orders";
+const ordersCookieName = "addis_orders";
 let pendingWrite = Promise.resolve();
 
 // Maintain an in-memory cache on globalThis for serverless resilience
@@ -31,6 +32,36 @@ function getStorePaths() {
     directory: join(process.cwd(), ".data"),
     filePath: join(process.cwd(), ".data", "orders.json"),
   };
+}
+
+async function getCookieOrders() {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const raw = cookieStore.get(ordersCookieName)?.value;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setCookieOrders(orders) {
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const compact = orders.slice(-15);
+    cookieStore.set(ordersCookieName, JSON.stringify(compact), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  } catch {
+    // Non-mutation context or headers committed
+  }
 }
 
 async function readLocalOrders() {
@@ -75,6 +106,7 @@ async function readRedisOrders() {
 
 async function readOrders() {
   const inMemoryOrders = Array.from(globalThis.__addisEatsOrders.values());
+  const cookieOrders = await getCookieOrders();
   let persisted = [];
 
   try {
@@ -87,15 +119,23 @@ async function readOrders() {
     console.warn("readOrders persistence error:", error.message);
   }
 
-  // Merge persisted and in-memory orders
+  // Merge cookie, disk/redis, and in-memory orders (newest wins by id)
   const map = new Map();
+  for (const order of cookieOrders) {
+    if (order?.id) map.set(order.id, order);
+  }
   for (const order of persisted) {
     if (order?.id) map.set(order.id, order);
   }
   for (const order of inMemoryOrders) {
     if (order?.id) map.set(order.id, order);
   }
-  return Array.from(map.values());
+
+  const all = Array.from(map.values());
+  for (const order of all) {
+    globalThis.__addisEatsOrders.set(order.id, order);
+  }
+  return all;
 }
 
 async function readOrder(id) {
@@ -103,25 +143,8 @@ async function readOrder(id) {
     return globalThis.__addisEatsOrders.get(id);
   }
 
-  if (getPersistenceMode() === "redis") {
-    try {
-      const value = await redisCommand("HGET", ordersKey, id);
-      if (value) {
-        const parsed = JSON.parse(value);
-        globalThis.__addisEatsOrders.set(id, parsed);
-        return parsed;
-      }
-    } catch (error) {
-      console.warn("readOrder redis lookup failed:", error.message);
-    }
-  }
-
-  const all = await readLocalOrders();
-  const found = all.find((order) => order.id === id) ?? null;
-  if (found) {
-    globalThis.__addisEatsOrders.set(id, found);
-  }
-  return found;
+  const all = await readOrders();
+  return all.find((order) => order.id === id) ?? null;
 }
 
 async function writeLocalOrders(orders) {
@@ -133,7 +156,6 @@ async function writeLocalOrders(orders) {
     await writeFile(temporaryPath, JSON.stringify(orders, null, 2), "utf8");
     await rename(temporaryPath, filePath);
   } catch (error) {
-    // If writing to process.cwd()/.data failed (e.g. EROFS on Vercel), fallback to tmpdir()
     if (directory !== tmpdir()) {
       try {
         const fallbackDir = tmpdir();
@@ -142,10 +164,10 @@ async function writeLocalOrders(orders) {
         await writeFile(temporaryPath, JSON.stringify(orders, null, 2), "utf8");
         await rename(temporaryPath, fallbackPath);
       } catch (fallbackError) {
-        console.warn("Local orders disk write failed (retained in memory):", fallbackError.message);
+        console.warn("Local orders disk write failed (retained in memory/cookie):", fallbackError.message);
       }
     } else {
-      console.warn("Local orders disk write failed (retained in memory):", error.message);
+      console.warn("Local orders disk write failed (retained in memory/cookie):", error.message);
     }
   }
 }
@@ -158,19 +180,23 @@ function serialize(operation) {
 
 export function saveOrder(order) {
   return serialize(async () => {
-    // Always keep in-memory cache updated immediately
+    // 1. In-memory
     globalThis.__addisEatsOrders.set(order.id, order);
 
+    // 2. Cookie store (persists across serverless lambdas in the same browser session)
+    const all = await readOrders();
+    const updated = [...all.filter((item) => item.id !== order.id), order];
+    await setCookieOrders(updated);
+
+    // 3. Disk / Redis
     try {
       if (getPersistenceMode() === "redis") {
         await redisCommand("HSET", ordersKey, order.id, JSON.stringify(order));
       } else {
-        const existing = await readLocalOrders();
-        const updated = [...existing.filter((item) => item.id !== order.id), order];
         await writeLocalOrders(updated);
       }
     } catch (error) {
-      console.warn("saveOrder persistence write failed (order safe in memory):", error.message);
+      console.warn("saveOrder persistence write failed (order safe in memory/cookie):", error.message);
     }
 
     return order;
@@ -205,12 +231,15 @@ export function updateOrderStatus(id, status) {
     order.status = status;
     globalThis.__addisEatsOrders.set(id, order);
 
+    const all = await readOrders();
+    const updated = all.map((item) => item.id === id ? order : item);
+    await setCookieOrders(updated);
+
     try {
       if (getPersistenceMode() === "redis") {
         await redisCommand("HSET", ordersKey, id, JSON.stringify(order));
       } else {
-        const orders = await readLocalOrders();
-        await writeLocalOrders(orders.map((item) => item.id === id ? order : item));
+        await writeLocalOrders(updated);
       }
     } catch (error) {
       console.warn("updateOrderStatus persistence failed:", error.message);
@@ -222,14 +251,14 @@ export function updateOrderStatus(id, status) {
 export function deleteOrderById(id) {
   return serialize(async () => {
     globalThis.__addisEatsOrders.delete(id);
+    const all = await readOrders();
+    const remaining = all.filter((order) => order.id !== id);
+    await setCookieOrders(remaining);
 
     try {
       if (getPersistenceMode() === "redis") {
         return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
       }
-      const orders = await readLocalOrders();
-      const remaining = orders.filter((order) => order.id !== id);
-      if (remaining.length === orders.length) return false;
       await writeLocalOrders(remaining);
       return true;
     } catch (error) {
@@ -243,6 +272,7 @@ export function deleteAllOrders() {
   return serialize(async () => {
     const count = globalThis.__addisEatsOrders.size;
     globalThis.__addisEatsOrders.clear();
+    await setCookieOrders([]);
 
     try {
       if (getPersistenceMode() === "redis") {
@@ -250,9 +280,8 @@ export function deleteAllOrders() {
         if (redisCount > 0) await redisCommand("DEL", ordersKey);
         return redisCount || count;
       }
-      const orders = await readLocalOrders();
       await writeLocalOrders([]);
-      return orders.length || count;
+      return count;
     } catch (error) {
       console.warn("deleteAllOrders persistence failed:", error.message);
       return count;
@@ -266,13 +295,15 @@ export function removeOrderForOwner(id, owner) {
     if (order?.owner !== owner) return false;
 
     globalThis.__addisEatsOrders.delete(id);
+    const all = await readOrders();
+    const remaining = all.filter((item) => item.id !== id);
+    await setCookieOrders(remaining);
 
     try {
       if (getPersistenceMode() === "redis") {
         return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
       }
-      const orders = await readLocalOrders();
-      await writeLocalOrders(orders.filter((item) => item.id !== id));
+      await writeLocalOrders(remaining);
       return true;
     } catch (error) {
       console.warn("removeOrderForOwner persistence failed:", error.message);
