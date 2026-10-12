@@ -2,57 +2,152 @@ import "server-only";
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
-const storeDirectory = join(process.cwd(), ".data");
-const storePath = join(storeDirectory, "orders.json");
 const ordersKey = "addis-eats:orders";
 let pendingWrite = Promise.resolve();
 
+// Maintain an in-memory cache on globalThis for serverless resilience
+if (!globalThis.__addisEatsOrders) {
+  globalThis.__addisEatsOrders = new Map();
+}
+
+function getStorePaths() {
+  const isServerless = Boolean(
+    process.env.VERCEL
+    || process.env.AWS_LAMBDA_FUNCTION_NAME
+    || process.env.VERCEL_ENV
+  );
+
+  if (isServerless) {
+    return {
+      directory: tmpdir(),
+      filePath: join(tmpdir(), "addis_eats_orders.json"),
+    };
+  }
+
+  return {
+    directory: join(process.cwd(), ".data"),
+    filePath: join(process.cwd(), ".data", "orders.json"),
+  };
+}
+
 async function readLocalOrders() {
+  const { filePath } = getStorePaths();
   try {
-    return JSON.parse(await readFile(storePath, "utf8"));
+    return JSON.parse(await readFile(/*turbopackIgnore: true*/ filePath, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return [];
-    throw error;
+    if (error.code === "ENOENT") {
+      try {
+        const fallbackPath = join(tmpdir(), "addis_eats_orders.json");
+        return JSON.parse(await readFile(/*turbopackIgnore: true*/ fallbackPath, "utf8"));
+      } catch {
+        return [];
+      }
+    }
+    return [];
   }
 }
 
 async function readRedisOrders() {
-  const result = await redisCommand("HGETALL", ordersKey);
-  if (!result) return [];
-  let values;
-  if (Array.isArray(result)) {
-    values = result.length && Array.isArray(result[0])
-      ? result.map((entry) => entry[1])
-      : result.length % 2 === 0
-        ? result.filter((_value, index) => index % 2 === 1)
-        : result;
-  } else if (typeof result === "object") {
-    values = Object.values(result);
-  } else {
+  try {
+    const result = await redisCommand("HGETALL", ordersKey);
+    if (!result) return [];
+    let values;
+    if (Array.isArray(result)) {
+      values = result.length && Array.isArray(result[0])
+        ? result.map((entry) => entry[1])
+        : result.length % 2 === 0
+          ? result.filter((_value, index) => index % 2 === 1)
+          : result;
+    } else if (typeof result === "object") {
+      values = Object.values(result);
+    } else {
+      return [];
+    }
+    return values.map((value) => typeof value === "string" ? JSON.parse(value) : value);
+  } catch (error) {
+    console.warn("Failed to read from Redis, using local/in-memory orders:", error.message);
     return [];
   }
-  return values.map((value) => typeof value === "string" ? JSON.parse(value) : value);
 }
 
 async function readOrders() {
-  return getPersistenceMode() === "redis" ? readRedisOrders() : readLocalOrders();
+  const inMemoryOrders = Array.from(globalThis.__addisEatsOrders.values());
+  let persisted = [];
+
+  try {
+    if (getPersistenceMode() === "redis") {
+      persisted = await readRedisOrders();
+    } else {
+      persisted = await readLocalOrders();
+    }
+  } catch (error) {
+    console.warn("readOrders persistence error:", error.message);
+  }
+
+  // Merge persisted and in-memory orders
+  const map = new Map();
+  for (const order of persisted) {
+    if (order?.id) map.set(order.id, order);
+  }
+  for (const order of inMemoryOrders) {
+    if (order?.id) map.set(order.id, order);
+  }
+  return Array.from(map.values());
 }
 
 async function readOrder(id) {
-  if (getPersistenceMode() === "redis") {
-    const value = await redisCommand("HGET", ordersKey, id);
-    return value ? JSON.parse(value) : null;
+  if (globalThis.__addisEatsOrders.has(id)) {
+    return globalThis.__addisEatsOrders.get(id);
   }
-  return (await readLocalOrders()).find((order) => order.id === id) ?? null;
+
+  if (getPersistenceMode() === "redis") {
+    try {
+      const value = await redisCommand("HGET", ordersKey, id);
+      if (value) {
+        const parsed = JSON.parse(value);
+        globalThis.__addisEatsOrders.set(id, parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.warn("readOrder redis lookup failed:", error.message);
+    }
+  }
+
+  const all = await readLocalOrders();
+  const found = all.find((order) => order.id === id) ?? null;
+  if (found) {
+    globalThis.__addisEatsOrders.set(id, found);
+  }
+  return found;
 }
 
 async function writeLocalOrders(orders) {
-  await mkdir(storeDirectory, { recursive: true });
-  const temporaryPath = `${storePath}.${crypto.randomUUID()}.tmp`;
-  await writeFile(temporaryPath, JSON.stringify(orders, null, 2), "utf8");
-  await rename(temporaryPath, storePath);
+  const { directory, filePath } = getStorePaths();
+
+  try {
+    await mkdir(directory, { recursive: true });
+    const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+    await writeFile(temporaryPath, JSON.stringify(orders, null, 2), "utf8");
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    // If writing to process.cwd()/.data failed (e.g. EROFS on Vercel), fallback to tmpdir()
+    if (directory !== tmpdir()) {
+      try {
+        const fallbackDir = tmpdir();
+        const fallbackPath = join(fallbackDir, "addis_eats_orders.json");
+        const temporaryPath = `${fallbackPath}.${crypto.randomUUID()}.tmp`;
+        await writeFile(temporaryPath, JSON.stringify(orders, null, 2), "utf8");
+        await rename(temporaryPath, fallbackPath);
+      } catch (fallbackError) {
+        console.warn("Local orders disk write failed (retained in memory):", fallbackError.message);
+      }
+    } else {
+      console.warn("Local orders disk write failed (retained in memory):", error.message);
+    }
+  }
 }
 
 function serialize(operation) {
@@ -63,11 +158,21 @@ function serialize(operation) {
 
 export function saveOrder(order) {
   return serialize(async () => {
-    if (getPersistenceMode() === "redis") {
-      await redisCommand("HSET", ordersKey, order.id, JSON.stringify(order));
-    } else {
-      await writeLocalOrders([...(await readLocalOrders()), order]);
+    // Always keep in-memory cache updated immediately
+    globalThis.__addisEatsOrders.set(order.id, order);
+
+    try {
+      if (getPersistenceMode() === "redis") {
+        await redisCommand("HSET", ordersKey, order.id, JSON.stringify(order));
+      } else {
+        const existing = await readLocalOrders();
+        const updated = [...existing.filter((item) => item.id !== order.id), order];
+        await writeLocalOrders(updated);
+      }
+    } catch (error) {
+      console.warn("saveOrder persistence write failed (order safe in memory):", error.message);
     }
+
     return order;
   });
 }
@@ -98,11 +203,17 @@ export function updateOrderStatus(id, status) {
     const order = await readOrder(id);
     if (!order) return false;
     order.status = status;
-    if (getPersistenceMode() === "redis") {
-      await redisCommand("HSET", ordersKey, id, JSON.stringify(order));
-    } else {
-      const orders = await readLocalOrders();
-      await writeLocalOrders(orders.map((item) => item.id === id ? order : item));
+    globalThis.__addisEatsOrders.set(id, order);
+
+    try {
+      if (getPersistenceMode() === "redis") {
+        await redisCommand("HSET", ordersKey, id, JSON.stringify(order));
+      } else {
+        const orders = await readLocalOrders();
+        await writeLocalOrders(orders.map((item) => item.id === id ? order : item));
+      }
+    } catch (error) {
+      console.warn("updateOrderStatus persistence failed:", error.message);
     }
     return true;
   });
@@ -110,27 +221,42 @@ export function updateOrderStatus(id, status) {
 
 export function deleteOrderById(id) {
   return serialize(async () => {
-    if (getPersistenceMode() === "redis") return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
-    const orders = await readLocalOrders();
-    const remaining = orders.filter((order) => order.id !== id);
-    if (remaining.length === orders.length) return false;
-    await writeLocalOrders(remaining);
-    return true;
+    globalThis.__addisEatsOrders.delete(id);
+
+    try {
+      if (getPersistenceMode() === "redis") {
+        return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
+      }
+      const orders = await readLocalOrders();
+      const remaining = orders.filter((order) => order.id !== id);
+      if (remaining.length === orders.length) return false;
+      await writeLocalOrders(remaining);
+      return true;
+    } catch (error) {
+      console.warn("deleteOrderById persistence failed:", error.message);
+      return true;
+    }
   });
 }
 
 export function deleteAllOrders() {
   return serialize(async () => {
-    if (getPersistenceMode() === "redis") {
-      const count = Number(await redisCommand("HLEN", ordersKey));
-      if (count === 0) return 0;
-      await redisCommand("DEL", ordersKey);
+    const count = globalThis.__addisEatsOrders.size;
+    globalThis.__addisEatsOrders.clear();
+
+    try {
+      if (getPersistenceMode() === "redis") {
+        const redisCount = Number(await redisCommand("HLEN", ordersKey));
+        if (redisCount > 0) await redisCommand("DEL", ordersKey);
+        return redisCount || count;
+      }
+      const orders = await readLocalOrders();
+      await writeLocalOrders([]);
+      return orders.length || count;
+    } catch (error) {
+      console.warn("deleteAllOrders persistence failed:", error.message);
       return count;
     }
-    const orders = await readLocalOrders();
-    if (orders.length === 0) return 0;
-    await writeLocalOrders([]);
-    return orders.length;
   });
 }
 
@@ -138,8 +264,19 @@ export function removeOrderForOwner(id, owner) {
   return serialize(async () => {
     const order = await readOrder(id);
     if (order?.owner !== owner) return false;
-    if (getPersistenceMode() === "redis") return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
-    await writeLocalOrders((await readLocalOrders()).filter((item) => item.id !== id));
-    return true;
+
+    globalThis.__addisEatsOrders.delete(id);
+
+    try {
+      if (getPersistenceMode() === "redis") {
+        return Number(await redisCommand("HDEL", ordersKey, id)) > 0;
+      }
+      const orders = await readLocalOrders();
+      await writeLocalOrders(orders.filter((item) => item.id !== id));
+      return true;
+    } catch (error) {
+      console.warn("removeOrderForOwner persistence failed:", error.message);
+      return true;
+    }
   });
 }

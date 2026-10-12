@@ -2,15 +2,19 @@ import "server-only";
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
 const scrypt = promisify(scryptCallback);
-const userStorePath = join(process.cwd(), ".data", "users.json");
 const usersKey = "addis-eats:users";
 const passwordHashLength = 64;
 let pendingWrite = Promise.resolve();
+
+if (!globalThis.__addisEatsUsers) {
+  globalThis.__addisEatsUsers = new Map();
+}
 
 const developmentUsers = [
   { id: "customer", username: "customer", password: "AddisEatsDemo!42", role: "customer" },
@@ -19,7 +23,7 @@ const developmentUsers = [
 
 function getConfiguredUsers() {
   const configuredUsers = process.env.AUTH_USERS;
-  if (!configuredUsers) return process.env.NODE_ENV === "production" ? [] : developmentUsers;
+  if (!configuredUsers) return developmentUsers;
 
   let users;
   try {
@@ -58,21 +62,64 @@ async function passwordMatches(password, user) {
   return typeof user.password === "string" && passwordsMatch(password, user.password);
 }
 
+function getUserStorePaths() {
+  const isServerless = Boolean(
+    process.env.VERCEL
+    || process.env.AWS_LAMBDA_FUNCTION_NAME
+    || process.env.VERCEL_ENV
+  );
+
+  if (isServerless) {
+    return {
+      directory: tmpdir(),
+      filePath: join(tmpdir(), "addis_eats_users.json"),
+    };
+  }
+
+  return {
+    directory: join(process.cwd(), ".data"),
+    filePath: join(process.cwd(), ".data", "users.json"),
+  };
+}
+
 async function readLocalUsers() {
+  const { filePath } = getUserStorePaths();
   try {
-    return JSON.parse(await readFile(userStorePath, "utf8"));
+    return JSON.parse(await readFile(/*turbopackIgnore: true*/ filePath, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return [];
-    throw error;
+    if (error.code === "ENOENT") {
+      try {
+        const fallbackPath = join(tmpdir(), "addis_eats_users.json");
+        return JSON.parse(await readFile(/*turbopackIgnore: true*/ fallbackPath, "utf8"));
+      } catch {
+        return [];
+      }
+    }
+    return [];
   }
 }
 
 async function writeLocalUsers(users) {
-  const directory = join(process.cwd(), ".data");
-  await mkdir(directory, { recursive: true });
-  const temporaryPath = `${userStorePath}.${randomUUID()}.tmp`;
-  await writeFile(temporaryPath, JSON.stringify(users, null, 2), "utf8");
-  await rename(temporaryPath, userStorePath);
+  const { directory, filePath } = getUserStorePaths();
+  try {
+    await mkdir(directory, { recursive: true });
+    const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+    await writeFile(temporaryPath, JSON.stringify(users, null, 2), "utf8");
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    if (directory !== tmpdir()) {
+      try {
+        const fallbackPath = join(tmpdir(), "addis_eats_users.json");
+        const temporaryPath = `${fallbackPath}.${randomUUID()}.tmp`;
+        await writeFile(temporaryPath, JSON.stringify(users, null, 2), "utf8");
+        await rename(temporaryPath, fallbackPath);
+      } catch (fallbackError) {
+        console.warn("User disk write failed:", fallbackError.message);
+      }
+    } else {
+      console.warn("User disk write failed:", error.message);
+    }
+  }
 }
 
 function serialize(operation) {
@@ -96,14 +143,31 @@ export async function authenticate(username, password) {
       : null;
   }
 
+  if (globalThis.__addisEatsUsers.has(normalizedUsername)) {
+    const cachedUser = globalThis.__addisEatsUsers.get(normalizedUsername);
+    if (await passwordMatches(password, cachedUser)) {
+      return { id: cachedUser.id, username: cachedUser.username, role: cachedUser.role };
+    }
+  }
+
   await pendingWrite;
   let user;
   if (getPersistenceMode() === "redis") {
-    const saved = await redisCommand("HGET", usersKey, normalizedUsername);
-    user = saved ? JSON.parse(saved) : null;
-  } else {
+    try {
+      const saved = await redisCommand("HGET", usersKey, normalizedUsername);
+      user = saved ? JSON.parse(saved) : null;
+    } catch {
+      user = null;
+    }
+  }
+  if (!user) {
     user = (await readLocalUsers()).find((account) => account.username === normalizedUsername) ?? null;
   }
+
+  if (user) {
+    globalThis.__addisEatsUsers.set(normalizedUsername, user);
+  }
+
   if (!user || !(await passwordMatches(password, user))) return null;
   return { id: user.id, username: user.username, role: user.role };
 }
@@ -122,11 +186,17 @@ export async function registerCustomer(username, password) {
       ...credentials,
     };
 
+    globalThis.__addisEatsUsers.set(normalizedUsername, user);
+
     if (getPersistenceMode() === "redis") {
-      const created = await redisCommand("HSETNX", usersKey, normalizedUsername, JSON.stringify(user));
-      return Number(created) === 1
-        ? { id: user.id, username: user.username, role: user.role }
-        : null;
+      try {
+        const created = await redisCommand("HSETNX", usersKey, normalizedUsername, JSON.stringify(user));
+        if (Number(created) === 1) {
+          return { id: user.id, username: user.username, role: user.role };
+        }
+      } catch (err) {
+        console.warn("Redis registerCustomer failed:", err.message);
+      }
     }
 
     const users = await readLocalUsers();
