@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { signIn } from "./actions";
 
 const initialState = { message: "" };
@@ -25,6 +26,7 @@ export default function SignInForm({ next }) {
       <button className="button" type="submit" disabled={isPending}>
         {isPending ? "Signing in…" : "Sign in"}
       </button>
+      <p className="account-prompt">New here? <Link href={`/signup${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}`}>Create a customer account</Link></p>
     </form>
   );
 }

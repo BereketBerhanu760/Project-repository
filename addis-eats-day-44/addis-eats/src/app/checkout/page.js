@@ -16,13 +16,14 @@ export const metadata = {
 };
 
 export default async function CheckoutPage({ searchParams }) {
-  const cart = await getCart();
   const session = await getSession();
+  if (session?.role === "staff") redirect("/kitchen");
   if (!session) {
     const params = await searchParams;
     const returnTo = appendSearchParams("/checkout", params);
     redirect(`/signin?next=${encodeURIComponent(returnTo)}`);
   }
+  const cart = await getCart();
   const orders = await listOrdersForOwner(session.id);
 
   return (

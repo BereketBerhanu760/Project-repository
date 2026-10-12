@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCart } from "@/lib/cart";
+import { getSession } from "@/lib/session";
 import { removeFromCart } from "./actions";
 
 export const metadata = {
@@ -10,6 +12,9 @@ export const metadata = {
 };
 
 export default async function CartPage() {
+    const session = await getSession();
+    if (session?.role === "staff") redirect("/kitchen");
+
     const items = await getCart();
     const total = items.reduce((sum, item) => sum + item.subtotal, 0);
 

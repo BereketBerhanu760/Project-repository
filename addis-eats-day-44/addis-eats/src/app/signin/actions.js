@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { authenticate } from "@/lib/auth";
 import { clearSession, setSession } from "@/lib/session";
-import { claimAnonymousCart } from "@/lib/cart";
+import { claimAnonymousCart, saveCart } from "@/lib/cart";
 import { getSafeReturnTo } from "@/lib/safe-return-to";
 
 export async function signIn(_previousState, formData) {
@@ -15,12 +15,17 @@ export async function signIn(_previousState, formData) {
     return { message: "Enter your username and password." };
   }
 
-  const user = authenticate(username, password);
+  const user = await authenticate(username, password);
   if (!user) {
     return { message: "The username or password is incorrect." };
   }
 
   await setSession(user);
+  if (user.role === "staff") {
+    await saveCart([]);
+    redirect("/kitchen");
+  }
+
   await claimAnonymousCart(user.id);
   redirect(returnTo);
 }

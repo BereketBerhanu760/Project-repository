@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { orderSchema, flattenZodErrors } from "@/lib/schema";
 import { getCart, saveCart } from "@/lib/cart";
 import { removeOrderForOwner, saveOrder } from "@/lib/order-store";
@@ -8,6 +9,7 @@ import { getSession } from "@/lib/session";
 
 export async function placeOrder(prevState, formData) {
   const session = await getSession();
+  if (session?.role === "staff") redirect("/kitchen");
   if (!session) {
     return {
       status: "error",
@@ -49,7 +51,7 @@ export async function placeOrder(prevState, formData) {
     items: cart.map(({ dishId, quantity }) => ({ dishId, quantity })),
     id: crypto.randomUUID(),
     owner: session.id,
-    status: "Received",
+    status: "pending",
     createdAt: new Date().toISOString(),
   });
 

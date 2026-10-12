@@ -4,8 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDish } from "@/app/menu/data";
 import { getCart, saveCart } from "@/lib/cart";
+import { getSession } from "@/lib/session";
+
+async function redirectStaffToKitchen() {
+  if ((await getSession())?.role === "staff") redirect("/kitchen");
+}
 
 export async function addToCart(formData) {
+  await redirectStaffToKitchen();
   const dishId = formData.get("dishId");
   const dish = typeof dishId === "string" ? getDish(dishId) : undefined;
   if (!dish) redirect("/menu");
@@ -24,6 +30,7 @@ export async function addToCart(formData) {
 }
 
 export async function removeFromCart(formData) {
+  await redirectStaffToKitchen();
   const dishId = formData.get("dishId");
   const cart = await getCart();
   await saveCart(cart

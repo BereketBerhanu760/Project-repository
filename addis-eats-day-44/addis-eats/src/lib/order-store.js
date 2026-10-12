@@ -51,6 +51,44 @@ export async function getOrderForOwner(id, owner) {
   return (await readOrders()).find((order) => order.id === id && order.owner === owner) ?? null;
 }
 
+export async function getOrderById(id) {
+  await pendingWrite;
+  return (await readOrders()).find((order) => order.id === id) ?? null;
+}
+
+export function updateOrderStatus(id, status) {
+  return serialize(async () => {
+    const orders = await readOrders();
+    const order = orders.find((item) => item.id === id);
+    if (!order) return false;
+
+    order.status = status;
+    await writeOrders(orders);
+    return true;
+  });
+}
+
+export function deleteOrderById(id) {
+  return serialize(async () => {
+    const orders = await readOrders();
+    const remainingOrders = orders.filter((order) => order.id !== id);
+    if (remainingOrders.length === orders.length) return false;
+
+    await writeOrders(remainingOrders);
+    return true;
+  });
+}
+
+export function deleteAllOrders() {
+  return serialize(async () => {
+    const orders = await readOrders();
+    if (orders.length === 0) return 0;
+
+    await writeOrders([]);
+    return orders.length;
+  });
+}
+
 export function removeOrderForOwner(id, owner) {
   return serialize(async () => {
     const orders = await readOrders();

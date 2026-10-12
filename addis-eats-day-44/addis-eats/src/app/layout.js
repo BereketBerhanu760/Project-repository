@@ -47,8 +47,15 @@ export default async function RootLayout({ children }) {
             <nav className="nav" aria-label="Main navigation">
               <Link href="/">Home</Link>
               <Link href="/menu">Menu</Link>
-              <Link className="cart-link" href="/cart">Cart</Link>
-              {session ? <SignOutForm /> : <Link href="/signin">Sign in</Link>}
+              {session?.role !== "staff" ? <Link className="cart-link" href="/cart">Cart</Link> : null}
+              {session ? <Link href="/Orders">Orders</Link> : null}
+              {session?.role === "staff" ? <Link href="/kitchen">Admin</Link> : null}
+              {session ? <SignOutForm /> : (
+                <>
+                  <Link href="/signin">Sign in</Link>
+                  <Link href="/signup">Sign up</Link>
+                </>
+              )}
             </nav>
           </header>
           {children}

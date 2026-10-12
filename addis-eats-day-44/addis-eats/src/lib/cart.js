@@ -51,6 +51,7 @@ function decodeCart(value) {
 
 export async function getCart() {
   const session = await getSession();
+  if (session?.role === "staff") return [];
   const value = (await cookies()).get(getCartCookieName(session))?.value;
   return decodeCart(value);
 }
@@ -58,6 +59,10 @@ export async function getCart() {
 export async function saveCart(items) {
   const session = await getSession();
   const cookieStore = await cookies();
+  if (session?.role === "staff") {
+    cookieStore.delete(getCartCookieName(session));
+    return;
+  }
   const name = getCartCookieName(session);
 
   if (items.length === 0) {
@@ -69,6 +74,9 @@ export async function saveCart(items) {
 }
 
 export async function claimAnonymousCart(userId) {
+  const session = await getSession();
+  if (session?.role !== "customer" || session.id !== userId) return;
+
   const cookieStore = await cookies();
   const anonymousCart = cookieStore.get(anonymousCartCookie)?.value;
   if (!anonymousCart) return;

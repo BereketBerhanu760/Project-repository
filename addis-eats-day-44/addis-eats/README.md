@@ -4,9 +4,9 @@ Addis Eats is a Next.js App Router restaurant ordering capstone. The menu and di
 
 **Deployed site:** [https://project-repository-z5ez.vercel.app](https://project-repository-z5ez.vercel.app)
 
-Orders are stored locally in `.data/orders.json`; use a durable database or volume for serverless hosting. Cart contents are kept in HTTP-only cookies, validated against menu data, and isolated by signed-in account; an anonymous cart is claimed by the first account that signs in.
+Orders are stored locally in `.data/orders.json`; use a durable database or volume for serverless hosting. Customer cart contents are kept in HTTP-only cookies, validated against menu data, and isolated by signed-in account; an anonymous cart is claimed when a customer signs in. Staff have no cart and are redirected to `/kitchen` from `/cart` and `/checkout`.
 
-Authentication uses signed eight-hour HTTP-only session cookies. In development,
+Authentication uses signed eight-hour HTTP-only session cookies. Customers can sign up with a unique username and their own 12-128 character password; password hashes are salted with scrypt and stored in `.data/users.json`. Signup cannot create staff accounts. The local JSON account/order stores need a durable database or volume before use on serverless hosting. In development,
 sign in with `customer` / `AddisEatsDemo!42` or `staff` / `KitchenDemo!42`.
 Production requires server-only `AUTH_SECRET` and `AUTH_USERS` configuration;
 see [AUTH.md](AUTH.md) for setup and the security checks.
@@ -34,16 +34,19 @@ Vercel project with the required production environment variables.
 
 ## API
 
-| Endpoint           | Method | Success                                             | Failure                                                    |
-| ------------------ | ------ | --------------------------------------------------- | ---------------------------------------------------------- |
-| `/api/dishes`      | `GET`  | `200` with paged `{ "dishes": [...], "page", "pageSize", "total", "totalPages" }` | - |
-| `/api/dishes/[id]` | `GET`  | `200` with `{ "dish": {...} }`                      | `404` with `{ "error": "Dish not found.", "status": 404 }` |
-| `/api/orders`      | `POST` | Authenticated `201` with the saved order (no owner/session value) | `401` unauthenticated; `400` malformed JSON; `422` schema or unknown-dish errors |
-| `/api/orders/[id]` | `GET`  | `200` with the signed-in owner's order status       | `404` for missing or non-owned orders                     |
+| Endpoint           | Method | Success                                                                           | Failure                                                                                            |
+| ------------------ | ------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `/api/dishes`      | `GET`  | `200` with paged `{ "dishes": [...], "page", "pageSize", "total", "totalPages" }` | -                                                                                                  |
+| `/api/dishes/[id]` | `GET`  | `200` with `{ "dish": {...} }`                                                    | `404` with `{ "error": "Dish not found.", "status": 404 }`                                         |
+| `/api/orders`      | `POST` | Authenticated customer `201` with the saved order (no owner/session value)        | `401` unauthenticated; `403` staff role; `400` malformed JSON; `422` schema or unknown-dish errors |
+| `/api/orders/[id]` | `GET`  | `200` with the owner's or staff's order status                                    | `404` for missing or unauthorized orders                                                           |
 
 `GET /api/dishes` also accepts `category`, `q`, and `page` query parameters and
 returns paginated menu metadata. `/Orders/[id]` renders the owner's order status
-on the server, then refreshes it in the browser every five seconds. See
+on the server, then refreshes it in the browser every five seconds. Customers
+can view only their own orders; staff can see and track all orders. The staff-only
+`/kitchen` page updates status to `pending`, `delivering`, or `received` through
+a role-checked server action. See
 [DATA.md](DATA.md) for query keys, debounce behavior, and refresh/cache decisions.
 
 To verify search in the browser, open Developer Tools → Network and type several
@@ -53,7 +56,7 @@ while it completes.
 
 ## Ordering Flow
 
-Open a dish detail page and submit **Add to cart**. The server validates the dish and stores it in the current anonymous or account-specific cart, then opens `/cart`. Add more dishes from the menu, remove line items, and select **Continue to checkout**. Sign in to place an order. Checkout displays only the signed-in account's cart and recent orders; its server action ignores client-supplied item/price values, validates customer fields, saves the order for that account, and clears only that account's cart.
+Open a dish detail page and submit **Add to cart**. The server validates the dish and stores it in the current anonymous or customer-specific cart, then opens `/cart`. Add more dishes from the menu, remove line items, and select **Continue to checkout**. Sign in as a customer to place an order. Checkout displays only that customer's cart and recent orders; its server action ignores client-supplied item/price values, validates customer fields, saves the order for that account, and clears only that account's cart. Staff sign in directly to `/kitchen` and never receive a personalized cart.
 
 ## Production Build Output
 
@@ -68,14 +71,17 @@ Verified with Next.js 16.3.6:
 ƒ /api/orders/[id]
 ƒ /cart
 ƒ /checkout
+ƒ /kitchen
 ƒ /menu
 ƒ /Orders/[id]
+ƒ /Orders
 ● /menu/doro-wot
 ● /menu/misir-wot
 ● /menu/gomen
 ● /menu/kitfo
 ● /menu/shiro
 ● /menu/tibs
+ƒ /signup
 ```
 
 `○` is static output, `●` is statically generated output, and `ƒ` is dynamic server rendering. `/menu` is dynamic because it reads `searchParams`; `/cart` and `/checkout` are dynamic because they read cookies. Dish pages are generated from `generateStaticParams`.

@@ -106,6 +106,17 @@ h1 { max-width: 720px; margin-bottom: 1.25rem; color: var(--green-dark); font-si
 .signin-form { margin: 2rem 0; }
 .signin-form > p { color: var(--muted); }
 .order-actions form { margin: 0; }
+.order-status-form { display: flex; align-items: center; gap: .65rem; }
+.order-status-form select { min-width: 130px; border: 1px solid #cdd7c8; border-radius: 6px; padding: .6rem; background: #fffdf8; color: var(--ink); font: inherit; }
+.order-status-form .button { padding: .65rem .9rem; }
+.delete-order, .delete-all-orders { color: #8d2d27; font-family: Arial, sans-serif; }
+.delete-order summary, .delete-all-orders summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.delete-order form { margin-top: .5rem; }
+.delete-all-orders { margin-top: 1rem; }
+.delete-all-orders p { margin: .6rem 0; color: var(--muted); font-family: Arial, sans-serif; font-size: .9rem; }
+.danger-button { border: 1px solid #a43c34; border-radius: 6px; padding: .55rem .8rem; background: #fff5f2; color: #8d2d27; font: inherit; font-weight: 700; cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+.account-prompt a { color: var(--green); font-weight: 700; }
 /* Add/Replace these rules in globals.css */
 
 .dish-card { 

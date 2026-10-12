@@ -10,5 +10,6 @@ export default function OrderStatus({ id, initialData }) {
   });
 
   if (error) return <p role="alert">Could not refresh this order status.</p>;
-  return <p className="status" aria-live="polite">{data.order.status}</p>;
+  const status = data.order.status || "pending";
+  return <p className="status" aria-live="polite">{status.replace(/^./, (letter) => letter.toUpperCase())}</p>;
 }

@@ -8,6 +8,9 @@ export async function POST(request) {
   if (!session) {
     return Response.json({ message: "Sign in before placing an order." }, { status: 401 });
   }
+  if (session.role !== "customer") {
+    return Response.json({ message: "Only customer accounts can place orders." }, { status: 403 });
+  }
 
   let body;
   try {
@@ -39,7 +42,7 @@ export async function POST(request) {
     ...result.data,
     owner: session.id,
     id: crypto.randomUUID(),
-    status: "Received",
+    status: "pending",
     createdAt: new Date().toISOString(),
   });
 

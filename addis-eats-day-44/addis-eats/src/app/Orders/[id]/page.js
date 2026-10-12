@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import OrderStatus from "@/app/Orders/OrderStatus";
-import { getOrderForOwner } from "@/lib/order-store";
+import { getOrderById, getOrderForOwner } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { appendSearchParams } from "@/lib/safe-return-to";
@@ -26,14 +26,16 @@ export default async function OrderPage({ params, searchParams }) {
     const returnTo = appendSearchParams(`/Orders/${id}`, query);
     redirect(`/signin?next=${encodeURIComponent(returnTo)}`);
   }
-  const order = await getOrderForOwner(id, session.id);
+  const order = session.role === "staff"
+    ? await getOrderById(id)
+    : await getOrderForOwner(id, session.id);
 
   if (!order) notFound();
 
   const initialData = {
     order: {
       id: order.id,
-      status: order.status || "Received",
+      status: order.status || "pending",
       createdAt: order.createdAt,
     },
   };
@@ -48,6 +50,7 @@ export default async function OrderPage({ params, searchParams }) {
         <p>Placed {new Date(order.createdAt).toLocaleString()}</p>
         <OrderStatus id={id} initialData={initialData} />
         <p className="menu-updating">Status refreshes automatically every five seconds.</p>
+        <Link className="text-link" href="/Orders">Back to orders</Link>
         <Link className="button" href="/menu">Back to the menu</Link>
       </section>
     </main>
