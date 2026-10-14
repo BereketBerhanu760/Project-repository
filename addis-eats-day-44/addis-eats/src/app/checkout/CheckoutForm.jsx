@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { placeOrder } from "./actions";
@@ -13,7 +13,20 @@ const initialState = {
 
 export default function CheckoutForm({ items }) {
   const [state, formAction, isPending] = useActionState(placeOrder, initialState);
+  const submitLock = useRef(false);
   const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+
+  useEffect(() => {
+    if (!isPending && state.status === "error") submitLock.current = false;
+  }, [isPending, state.status]);
+
+  function guardDuplicateSubmit(event) {
+    if (submitLock.current || isPending) {
+      event.preventDefault();
+      return;
+    }
+    submitLock.current = true;
+  }
 
   if (items.length === 0) {
     if (state.status === "success") {
@@ -40,7 +53,7 @@ export default function CheckoutForm({ items }) {
   }
 
   return (
-    <form action={formAction} className="checkout-form">
+    <form action={formAction} onSubmit={guardDuplicateSubmit} className="checkout-form">
       <h1>Almost at the table.</h1>
       <section className="checkout-summary" aria-label="Order summary">
         {items.map(({ dish, dishId, quantity, subtotal }) => (

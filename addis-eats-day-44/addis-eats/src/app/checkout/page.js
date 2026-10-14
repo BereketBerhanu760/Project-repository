@@ -34,48 +34,48 @@ export default async function CheckoutPage({ searchParams }) {
         <span>Signed in as {session.username}</span>
       </div>
       <CheckoutForm items={cart} />
-      {orders.length > 0 ? (
-        <section className="order-history" aria-labelledby="orders-heading">
-          <h2 id="orders-heading">Your recent orders</h2>
-          {orders.map((order) => {
-            const orderItems = order.items?.length
-              ? order.items
-              : [{ dishId: order.dishId, quantity: 1 }];
+      <section className="order-history" aria-labelledby="orders-heading">
+        <h2 id="orders-heading">Your recent orders</h2>
+        {orders.length ? orders.map((order) => {
+          const orderItems = order.items?.length
+            ? order.items
+            : [{ dishId: order.dishId, quantity: 1 }];
 
-            return (
-              <article className="order-row" key={order.id}>
-                <div>
-                  <strong>{order.name}</strong>
-                  <div className="checkout-recent-items">
-                    {orderItems.map(({ dishId, quantity }) => {
-                      const dish = getDish(dishId);
-                      return dish ? (
-                        <span className="checkout-recent-item" key={dishId}>
-                          <Image
-                            src={dish.image}
-                            alt={`${dish.imageAlt || dish.name} in a recent order`}
-                            width={dish.imageWidth}
-                            height={dish.imageHeight}
-                            sizes="40px"
-                          />
-                          {dish.name} × {quantity}
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-                  <p>{etb(order.totalETB)}</p>
+          return (
+            <article className="order-row" key={order.id}>
+              <div>
+                <strong>{order.name}</strong>
+                <div className="checkout-recent-items">
+                  {orderItems.map(({ dishId, quantity }) => {
+                    const dish = getDish(dishId);
+                    return dish ? (
+                      <span className="checkout-recent-item" key={dishId}>
+                        <Image
+                          src={dish.image}
+                          alt={`${dish.imageAlt || dish.name} in a recent order`}
+                          width={dish.imageWidth}
+                          height={dish.imageHeight}
+                          sizes="40px"
+                        />
+                        {dish.name} × {quantity}
+                      </span>
+                    ) : null;
+                  })}
                 </div>
-                <div className="order-actions">
-                  <Link className="text-link" href={`/track/${order.id}`}>Track status</Link>
-                  <form action={cancelOrder.bind(null, order.id)}>
-                    <button className="text-link" type="submit">Cancel order</button>
-                  </form>
-                </div>
-              </article>
-            );
-          })}
-        </section>
-      ) : null}
+                <p>{etb(order.totalETB)}</p>
+              </div>
+              <div className="order-actions">
+                <Link className="text-link" href={`/track/${order.id}`}>Track status</Link>
+                <form action={cancelOrder.bind(null, order.id)}>
+                  <button className="text-link" type="submit">Cancel order</button>
+                </form>
+              </div>
+            </article>
+          );
+        }) : (
+          <p>Your order history will appear here after your first order.</p>
+        )}
+      </section>
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SignOutForm from "./SignOutForm";
 
@@ -10,6 +10,15 @@ export default function SiteHeader({ session }) {
   function closeMenu() {
     setIsMenuOpen(false);
   }
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setIsMenuOpen(false);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isMenuOpen]);
 
   return (
     <header className="site-header">

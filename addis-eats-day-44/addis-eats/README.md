@@ -36,6 +36,14 @@ npm run build
 npm start
 ```
 
+## Vercel deployment and pre-flight checks
+
+Set `AUTH_SECRET` and `AUTH_USERS` in Vercel **separately for Preview and Production**. Use a different random `AUTH_SECRET` (at least 32 characters) and real account passwords in each environment; `AUTH_USERS` is a JSON array containing at least one customer and one staff account. Keep both variables server-only (do not prefix them with `NEXT_PUBLIC_`). Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in both environments too if durable order and account storage is required. `.env.example` lists the variable names and formats; it contains placeholders, not usable credentials.
+
+Before deploying, run `npm ci` and `npm run build`. Then check the preview deployment using only the keyboard (Tab, Enter, Escape) and on a real phone: place an order, rapidly activate Place order twice and confirm there is one order, verify visible focus, and confirm controls are at least 44 pixels tall. In a private browser window, verify unauthenticated pages load and protected pages request sign-in. Confirm the menu item share link shows a title, description, and image card. Repeat these checks against Production after deployment. Keep the current production URL below up to date.
+
+**Live URL:** [https://project-repository-z5ez.vercel.app](https://project-repository-z5ez.vercel.app)
+
 ## API
 
 | Endpoint           | Method | Success                                                                           | Failure                                                                                            |
