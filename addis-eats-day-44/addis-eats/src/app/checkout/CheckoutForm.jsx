@@ -46,7 +46,13 @@ export default function CheckoutForm({ items }) {
         {items.map(({ dish, dishId, quantity, subtotal }) => (
           <div className="checkout-summary-row" key={dishId}>
             <span className="checkout-summary-item">
-              <Image src={dish.image} alt="" width={48} height={48} />
+              <Image
+                src={dish.image}
+                alt={`${dish.imageAlt || dish.name} in your order summary`}
+                width={dish.imageWidth}
+                height={dish.imageHeight}
+                sizes="48px"
+              />
               {dish.name} × {quantity}
             </span>
             <strong>{subtotal} Birr</strong>

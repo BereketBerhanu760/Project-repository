@@ -6,6 +6,8 @@ export async function GET(request) {
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1;
   const category = params.get("category") || "all";
   const query = params.get("q") || "";
+  const favoritesOnly = params.get("favorites") === "1";
+  const favoriteIds = (params.get("favoriteIds") || "").split(",").filter(Boolean);
 
-  return Response.json(getDishPage({ category, query, page }));
+  return Response.json(getDishPage({ category, query, page, favoritesOnly, favoriteIds }));
 }

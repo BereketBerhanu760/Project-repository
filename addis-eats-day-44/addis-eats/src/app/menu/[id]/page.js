@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { dishes, getDish } from "../data";
 import { addToCart } from "@/app/cart/actions";
 import { SITE_URL } from "@/lib/site-url";
+import FavoriteButton from "../FavoriteButton";
 
 export function generateStaticParams() {
     return dishes.map((dish) => ({ id: dish.id }));
@@ -69,7 +70,7 @@ export default async function DishPage({ params }) {
         <div className="detail-mark">
           <Image
             src={dish.image}
-            alt={dish.name}
+            alt={dish.imageAlt || dish.name}
             width={dish.imageWidth}
             height={dish.imageHeight}
             sizes="(max-width: 700px) calc(100vw - 3rem), 420px"
@@ -78,7 +79,11 @@ export default async function DishPage({ params }) {
         </div>
         <p className="eyebrow">{dish.category}</p>
         <h1>{dish.name}</h1>
+        <FavoriteButton dishId={dish.id} className="detail-favorite" />
         <p>{dish.description}</p>
+        {dish.tag ? <p className="dish-tag">{dish.tag}</p> : null}
+        {dish.spicy ? <p className="dish-spicy">Spicy</p> : null}
+        {dish.ingredients?.length ? <p><strong>Ingredients:</strong> {dish.ingredients.join(", ")}</p> : null}
         <div className="detail-meta">
           <span>{dish.price} Birr</span>
         </div>

@@ -51,7 +51,13 @@ export default async function CheckoutPage({ searchParams }) {
                       const dish = getDish(dishId);
                       return dish ? (
                         <span className="checkout-recent-item" key={dishId}>
-                          <Image src={dish.image} alt="" width={40} height={40} />
+                          <Image
+                            src={dish.image}
+                            alt={`${dish.imageAlt || dish.name} in a recent order`}
+                            width={dish.imageWidth}
+                            height={dish.imageHeight}
+                            sizes="40px"
+                          />
                           {dish.name} × {quantity}
                         </span>
                       ) : null;

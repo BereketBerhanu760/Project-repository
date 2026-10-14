@@ -27,7 +27,14 @@ export default async function CartPage() {
             <div className="cart-list">
               {items.map(({ dish, dishId, quantity, subtotal }) => (
                 <article className="cart-row" key={dishId}>
-                  <Image className="cart-dish-image" src={dish.image} alt="" width={64} height={64} />
+                  <Image
+                    className="cart-dish-image"
+                    src={dish.image}
+                    alt={`${dish.imageAlt || dish.name} in your cart`}
+                    width={dish.imageWidth}
+                    height={dish.imageHeight}
+                    sizes="72px"
+                  />
                   <div className="cart-dish-info">
                     <h2>{dish.name}</h2>
                     <p>Quantity {quantity} · {dish.price} Birr each</p>

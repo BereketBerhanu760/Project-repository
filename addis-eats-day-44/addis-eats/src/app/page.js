@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getDish } from "@/app/menu/data";
+import { dishes } from "@/app/menu/data";
 
 export const metadata = {
   title: "Ethiopian food, delivered",
@@ -14,7 +14,7 @@ export default function Home() {
         <section className="hero">
           <div>
             <p className="eyebrow">A taste of home</p>
-            <h1>Good food carries a story.</h1>
+            <h1>Good food.</h1>
             <p className="hero-copy">Slow-cooked stews, bright spices, and the generous welcome of an Ethiopian table, delivered to your door.</p>
             <Link className="button" href="/menu">Explore the menu</Link>
           </div>
@@ -33,18 +33,14 @@ export default function Home() {
         <section>
           <div className="section-heading"><h2>From our kitchen</h2><p>Made fresh in Addis, shared everywhere.</p></div>
           <div className="dish-grid">
-            <DishPreview emoji="🍛" name="Doro Wot" text="Berbere chicken stew with egg and a deep, warming finish." id="doro-wot" />
-            <DishPreview emoji="🥘" name="Misir Wot" text="Earthy red lentils simmered with our house berbere blend." id="misir-wot" />
-            <DishPreview emoji="🥬" name="Gomen" text="Slow-cooked collard greens brightened with garlic and ginger." id="gomen" />
+            {dishes.slice(0, 3).map((dish) => <DishPreview key={dish.id} dish={dish} />)}
           </div>
         </section>
       </main>
   );
 }
 
-function DishPreview({ emoji, name, text, id }) {
-  const dish = getDish(id);
-
+function DishPreview({ dish }) {
   return (
     <article className="dish-card">
       <div>
@@ -52,20 +48,20 @@ function DishPreview({ emoji, name, text, id }) {
           {dish?.image ? (
             <Image
               src={dish.image}
-              alt={dish.name}
+              alt={dish.imageAlt || dish.name}
               width={dish.imageWidth}
               height={dish.imageHeight}
-              sizes="(max-width: 700px) calc(100vw - 3rem), (max-width: 1120px) calc((100vw - 6rem) / 3), 347px"
+              sizes="(max-width: 700px) calc(100vw - 5.5rem), (max-width: 1120px) calc((100vw - 12rem) / 3), 298px"
               className="dish-image"
             />
           ) : (
-            <div className="dish-emoji">{emoji}</div>
+            <div className="dish-emoji">🍽️</div>
           )}
         </div>
-        <h3>{name}</h3>
-        <p>{text}</p>
+        <h3>{dish.name}</h3>
+        <p>{dish.description}</p>
       </div>
-      <Link className="text-link" href={`/menu/${id}`}>View dish →</Link>
+      <Link className="text-link" href={`/menu/${dish.id}`}>View dish →</Link>
     </article>
   );
 }

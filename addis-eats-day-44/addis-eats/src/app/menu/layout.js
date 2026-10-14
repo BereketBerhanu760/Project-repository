@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-const categories = ["All", "Classics", "Vegan"];
+import { menuCategories } from "./data";
 
 export default function MenuLayout({ children }) {
   return (
@@ -8,9 +7,9 @@ export default function MenuLayout({ children }) {
       <aside className="menu-sidebar" aria-label="Menu categories">
         <p className="eyebrow">Browse the table</p>
         <nav className="menu-sidebar-nav">
-          {categories.map((category) => (
-            <Link href={category === "All" ? "/menu" : `/menu?category=${category.toLowerCase()}`} key={category}>
-              {category}
+          {["all", ...menuCategories].map((category) => (
+            <Link href={category === "all" ? "/menu" : `/menu?category=${encodeURIComponent(category)}`} key={category}>
+              {category === "all" ? "All" : category.replace(/\b\w/g, (letter) => letter.toUpperCase())}
             </Link>
           ))}
         </nav>
