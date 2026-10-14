@@ -4,7 +4,6 @@ import { getDish } from "@/app/menu/data";
 import { getSession } from "@/lib/session";
 import { listOrders, listOrdersForOwner } from "@/lib/order-store";
 import { etb, when } from "@/lib/format";
-import OrderHistoryExport from "./OrderHistoryExport";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -42,20 +41,6 @@ export default async function OrdersPage() {
         {orders.length ? (
           <div className="order-history-heading">
             <h2>Order history</h2>
-            <OrderHistoryExport
-              rows={orders.map((order) => [
-                order.id,
-                order.name,
-                order.items
-                  ?.map(
-                    ({ dishId, quantity }) =>
-                      `${quantity} × ${getDish(dishId)?.name ?? dishId}`,
-                  )
-                  .join(", ") || order.dishId,
-                etb(order.totalETB),
-                when(order.createdAt),
-              ])}
-            />
           </div>
         ) : null}
 

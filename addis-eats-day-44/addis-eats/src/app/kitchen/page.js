@@ -7,6 +7,9 @@ import OrdersLineChart from "./OrdersLineChart";
 import { deleteAllOrders, deleteOrder } from "./actions";
 import KitchenDeliveryRuns from "./KitchenDeliveryRuns";
 import { courierHomeBase, getDeliveryPoint } from "@/lib/tracking";
+import { getDish } from "@/app/menu/data";
+import { etb, when } from "@/lib/format";
+import OrderHistoryExport from "../Orders/OrderHistoryExport";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -92,7 +95,26 @@ export default async function KitchenPage({ searchParams }) {
           <RevenueChart data={revenueByNeighborhood} />
           <OrdersLineChart data={ordersByDay} />
           <section className="dashboard-orders" aria-labelledby="orders-heading">
-            <div className="section-heading"><h2 id="orders-heading">Orders</h2><p>{orders.length} total</p></div>
+            <div className="section-heading">
+              <div>
+                <h2 id="orders-heading">Orders</h2>
+                <p>{orders.length} total</p>
+              </div>
+              <OrderHistoryExport
+                rows={orders.map((order) => [
+                  order.id,
+                  order.name,
+                  order.items
+                    ?.map(
+                      ({ dishId, quantity }) =>
+                        `${quantity} × ${getDish(dishId)?.name ?? dishId}`,
+                    )
+                    .join(", ") || order.dishId,
+                  etb(order.totalETB),
+                  when(order.createdAt),
+                ])}
+              />
+            </div>
             <OrderTable orders={orders} searchParams={params} />
           </section>
           <section className="kitchen-management" aria-labelledby="kitchen-heading">

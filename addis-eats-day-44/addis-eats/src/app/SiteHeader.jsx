@@ -41,7 +41,7 @@ export default function SiteHeader({ session }) {
         <Link href="/" onClick={closeMenu}>Home</Link>
         <Link href="/menu" onClick={closeMenu}>Menu</Link>
         {session?.role !== "staff" ? <Link className="cart-link" href="/cart" onClick={closeMenu}>Cart</Link> : null}
-        {session ? <Link href="/Orders" onClick={closeMenu}>Orders</Link> : null}
+        {session && session.role !== "staff" ? <Link href="/Orders" onClick={closeMenu}>Orders</Link> : null}
         {session?.role === "staff" ? <Link href="/kitchen" onClick={closeMenu}>Admin</Link> : null}
         {session ? <SignOutForm /> : (
           <>
