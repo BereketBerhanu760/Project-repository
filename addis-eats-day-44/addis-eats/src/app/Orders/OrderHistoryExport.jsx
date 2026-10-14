@@ -2,7 +2,7 @@
 
 import { downloadCsv } from "@/lib/csv";
 
-const headers = ["Order reference", "Customer", "Items", "Total", "Status", "Placed"];
+const headers = ["Order reference", "Customer", "Items", "Total", "Placed"];
 
 export default function OrderHistoryExport({ rows }) {
   return (
