@@ -118,51 +118,6 @@ h1 { max-width: 720px; margin-bottom: 1.25rem; color: var(--green-dark); font-si
 .danger-button { border: 1px solid #a43c34; border-radius: 6px; padding: .55rem .8rem; background: #fff5f2; color: #8d2d27; font: inherit; font-weight: 700; cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .account-prompt a { color: var(--green); font-weight: 700; }
-
-.admin-dashboard > .simple-panel { max-width: 820px; }
-.dashboard-chart, .dashboard-orders, .kitchen-management { margin: 2rem 0 3rem; }
-.dashboard-chart { border: 1px solid #e3ddca; border-radius: 14px; padding: 1.25rem; background: #fffdf8; }
-.dashboard-chart .section-heading, .dashboard-orders .section-heading, .kitchen-management .section-heading { margin-bottom: .75rem; }
-.dashboard-chart .section-heading h2, .dashboard-orders .section-heading h2, .kitchen-management .section-heading h2 { margin: 0 0 .3rem; color: var(--green-dark); font-size: 1.5rem; letter-spacing: -.025em; }
-.chart-frame { width: 100%; overflow-x: auto; }
-.chart-svg { display: block; width: 100%; min-width: 540px; height: 260px; overflow: visible; }
-.line-chart-svg { height: 250px; }
-.chart-gridline { stroke: #d9dfd5; stroke-width: 1; }
-.chart-tick, .chart-label, .chart-value { fill: #26352b; font-family: Arial, sans-serif; font-size: 12px; }
-.chart-value { font-weight: 700; }
-.chart-bar { fill: #287a53; stroke: #123d2d; stroke-width: 1; }
-.chart-line { fill: none; stroke: #123d2d; stroke-width: 3; stroke-dasharray: 7 3; }
-.chart-point { fill: #fffdf8; stroke: #123d2d; stroke-width: 3; }
-.chart-data-table, .orders-table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: .9rem; }
-.chart-data-table { margin-top: .75rem; }
-.chart-data-table caption, .orders-table caption { padding: .6rem; color: var(--muted); text-align: left; }
-.chart-data-table th, .chart-data-table td, .orders-table th, .orders-table td { border-bottom: 1px solid #dfe3d8; padding: .7rem .75rem; text-align: left; }
-.chart-data-table thead, .orders-table thead { background: #f2f3ed; }
-.chart-data-table tbody th, .orders-table tbody th { color: var(--green-dark); font-weight: 700; }
-.chart-data-table td:nth-child(2), .orders-table td:nth-child(2) { font-variant-numeric: tabular-nums; }
-.dashboard-orders { max-width: none; }
-.table-scroll { width: 100%; overflow-x: auto; border: 1px solid #e3ddca; border-radius: 10px; background: #fffdf8; }
-.orders-table { min-width: 700px; }
-.orders-table thead a { color: var(--green-dark); text-decoration: underline; text-underline-offset: .15em; }
-.orders-table tbody tr:nth-child(even) { background: #fbfaf5; }
-.orders-table th[aria-sort="ascending"] a, .orders-table th[aria-sort="descending"] a { text-decoration-thickness: 2px; }
-.dashboard-empty { border: 1px dashed #bdcbbd; border-radius: 14px; padding: 2rem; background: #fffdf8; }
-.dashboard-empty h2 { color: var(--green-dark); }
-.dashboard-empty p:last-child { margin-bottom: 0; color: var(--muted); }
-.dashboard-table-skeleton { display: grid; gap: .65rem; max-width: 900px; padding: 1rem; border: 1px solid #e3ddca; border-radius: 10px; background: #fffdf8; }
-.skeleton-row { display: grid; grid-template-columns: 1.2fr 1fr .8fr 1.5fr; gap: .75rem; padding: .65rem 0; border-bottom: 1px solid #e9e7df; }
-.skeleton-row:last-child { border-bottom: 0; }
-.skeleton-row i { display: block; height: 1rem; border-radius: 4px; background: linear-gradient(90deg, #eceee7, #f6f6f1, #eceee7); }
-.pagination { margin: 1rem 0 0; }
-.pagination a { border-radius: 5px; padding: .25rem .4rem; text-decoration: underline; text-underline-offset: .15em; }
-.kitchen-management .order-history { max-width: none; }
-
-@media (max-width: 700px) {
-  .dashboard-chart { padding: .8rem; }
-  .chart-svg { min-width: 620px; }
-  .orders-table { min-width: 700px; }
-  .skeleton-row { grid-template-columns: 1fr 1fr; }
-}
 /* Add/Replace these rules in globals.css */
 
 .dish-card { 
