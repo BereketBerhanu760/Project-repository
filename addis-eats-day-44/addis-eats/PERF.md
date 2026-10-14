@@ -8,7 +8,17 @@
 | CLS    | ≤ 0.1    | 0.000                                                                   | 0.000                                                                   | No observed layout shift in either run; explicit image dimensions and `next/font` remain in place.                                                                                                                      |
 | INP    | ≤ 200 ms | Not available in Lighthouse navigation run (no interaction field data). | Not available in Lighthouse navigation run (no interaction field data). | INP requires real interaction data; Lighthouse navigation metrics do not produce a valid INP value. Do not substitute TBT.                                                                                              |
 
+## Mobile performance
+
 ![alt text](image.png)
+
+## Desktop performance
+
+![alt text](image-1.png)
+
+## Network throttle 4G
+
+![alt text](image-2.png)
 
 ## Changes and expected effect
 
