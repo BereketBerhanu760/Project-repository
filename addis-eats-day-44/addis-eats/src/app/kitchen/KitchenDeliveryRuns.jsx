@@ -137,7 +137,7 @@ export default function KitchenDeliveryRuns({ orders }) {
     <section className="delivery-run-panel" aria-labelledby="delivery-run-heading">
       <div className="section-heading">
         <h2 id="delivery-run-heading">Courier delivery run</h2>
-        <p>Simulate the courier along the road route and stream their position to the customer.</p>
+        <p>Simulate the courier along the road route.</p>
       </div>
       <div className="delivery-run-controls">
         <label>
