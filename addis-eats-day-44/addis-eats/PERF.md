@@ -2,11 +2,13 @@
 
 ## Performance budget
 
-| Metric | Budget | Baseline | Optimized | Cause of change |
-| --- | --- | --- | --- | --- |
-| LCP | ≤ 2.5 s | 0.871 s | 0.700 s | The global SWR provider was removed; fetcher configuration now lives only in the search and order-status components that use SWR. In the audited home route, transferred JavaScript fell from 154,387 to 148,329 bytes. |
-| CLS | ≤ 0.1 | 0.000 | 0.000 | No observed layout shift in either run; explicit image dimensions and `next/font` remain in place. |
-| INP | ≤ 200 ms | Not available in Lighthouse navigation run (no interaction field data). | Not available in Lighthouse navigation run (no interaction field data). | INP requires real interaction data; Lighthouse navigation metrics do not produce a valid INP value. Do not substitute TBT. |
+| Metric | Budget   | Baseline                                                                | Optimized                                                               | Cause of change                                                                                                                                                                                                         |
+| ------ | -------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LCP    | ≤ 2.5 s  | 0.871 s                                                                 | 0.700 s                                                                 | The global SWR provider was removed; fetcher configuration now lives only in the search and order-status components that use SWR. In the audited home route, transferred JavaScript fell from 154,387 to 148,329 bytes. |
+| CLS    | ≤ 0.1    | 0.000                                                                   | 0.000                                                                   | No observed layout shift in either run; explicit image dimensions and `next/font` remain in place.                                                                                                                      |
+| INP    | ≤ 200 ms | Not available in Lighthouse navigation run (no interaction field data). | Not available in Lighthouse navigation run (no interaction field data). | INP requires real interaction data; Lighthouse navigation metrics do not produce a valid INP value. Do not substitute TBT.                                                                                              |
+
+![alt text](image.png)
 
 ## Changes and expected effect
 
