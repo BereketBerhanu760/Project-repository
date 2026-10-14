@@ -85,7 +85,7 @@ export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
             <div><dt>Courier location · approximate</dt><dd>{coordinates(snapshot.courier)}</dd></div>
             <div><dt>Delivery address</dt><dd>{snapshot.delivery.address}<br /><span>Map point: {coordinates(snapshot.delivery)}</span></dd></div>
           </dl>
-          <p className="tracking-map-note">The kitchen team controls the courier route, and the location updates here live. The full delivery address is shown here.</p>
+          <p className="tracking-map-note">The kitchen team controls the courier route. The full delivery address is shown here.</p>
         </aside>
       </div>
     </section>
