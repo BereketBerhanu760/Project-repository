@@ -290,7 +290,7 @@ h1 { max-width: 720px; margin-bottom: 1.25rem; color: var(--green-dark); font-si
   .section-heading { align-items: flex-start; flex-direction: column; }
   .menu-layout { width: 100%; max-width: none; min-width: 0; margin-inline: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
   .menu-content { width: 100%; min-width: 0; }
-  .menu-sidebar { border-right: 0; border-bottom: 1px solid #dce3d8; padding: 1rem 0; }
+  .menu-sidebar { display: none; }
   .menu-sidebar-nav { display: flex; flex-wrap: nowrap; gap: .45rem; max-width: 100%; margin: .75rem 0; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .menu-sidebar-nav a { flex: 0 0 auto; }
   .category-bar { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
