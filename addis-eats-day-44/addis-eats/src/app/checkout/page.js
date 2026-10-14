@@ -1,4 +1,5 @@
 import CheckoutForm from "./CheckoutForm";
+import Image from "next/image";
 import { cancelOrder } from "./actions";
 import Link from "next/link";
 import { getCart } from "@/lib/cart";
@@ -36,23 +37,37 @@ export default async function CheckoutPage({ searchParams }) {
       {orders.length > 0 ? (
         <section className="order-history" aria-labelledby="orders-heading">
           <h2 id="orders-heading">Your recent orders</h2>
-          {orders.map((order) => (
-            <article className="order-row" key={order.id}>
-              <div>
-                <strong>{order.name}</strong>
-                <p>
-                  {order.items?.map(({ dishId, quantity }) => `${quantity} × ${getDish(dishId)?.name ?? dishId}`).join(", ") || order.dishId}
-                  {" · "}{etb(order.totalETB)}
-                </p>
-              </div>
-              <div className="order-actions">
-                <Link className="text-link" href={`/track/${order.id}`}>Track status</Link>
-                <form action={cancelOrder.bind(null, order.id)}>
-                  <button className="text-link" type="submit">Cancel order</button>
-                </form>
-              </div>
-            </article>
-          ))}
+          {orders.map((order) => {
+            const orderItems = order.items?.length
+              ? order.items
+              : [{ dishId: order.dishId, quantity: 1 }];
+
+            return (
+              <article className="order-row" key={order.id}>
+                <div>
+                  <strong>{order.name}</strong>
+                  <div className="checkout-recent-items">
+                    {orderItems.map(({ dishId, quantity }) => {
+                      const dish = getDish(dishId);
+                      return dish ? (
+                        <span className="checkout-recent-item" key={dishId}>
+                          <Image src={dish.image} alt="" width={40} height={40} />
+                          {dish.name} × {quantity}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  <p>{etb(order.totalETB)}</p>
+                </div>
+                <div className="order-actions">
+                  <Link className="text-link" href={`/track/${order.id}`}>Track status</Link>
+                  <form action={cancelOrder.bind(null, order.id)}>
+                    <button className="text-link" type="submit">Cancel order</button>
+                  </form>
+                </div>
+              </article>
+            );
+          })}
         </section>
       ) : null}
     </main>

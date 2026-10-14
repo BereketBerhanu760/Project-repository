@@ -27,7 +27,9 @@ export const dishes = [
     category: "Vegan", 
     price: 100, 
     emoji: "🥬", 
-    image: null,
+    image: "/images/gomen.jpg",
+    imageWidth: 768,
+    imageHeight: 768,
     description: "Tender collard greens with garlic, ginger, and a bright squeeze of lemon." 
   },
   { 

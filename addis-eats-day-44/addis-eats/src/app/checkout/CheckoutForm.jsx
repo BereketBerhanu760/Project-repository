@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { placeOrder } from "./actions";
 
 const initialState = {
@@ -44,7 +45,10 @@ export default function CheckoutForm({ items }) {
       <section className="checkout-summary" aria-label="Order summary">
         {items.map(({ dish, dishId, quantity, subtotal }) => (
           <div className="checkout-summary-row" key={dishId}>
-            <span>{dish.name} × {quantity}</span>
+            <span className="checkout-summary-item">
+              <Image src={dish.image} alt="" width={48} height={48} />
+              {dish.name} × {quantity}
+            </span>
             <strong>{subtotal} Birr</strong>
           </div>
         ))}

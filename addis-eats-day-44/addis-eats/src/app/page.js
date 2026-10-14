@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getDish } from "@/app/menu/data";
 
 export const metadata = {
   title: "Ethiopian food, delivered",
@@ -42,7 +43,29 @@ export default function Home() {
 }
 
 function DishPreview({ emoji, name, text, id }) {
-  return <article className="dish-card"><div><div className="dish-media">
-                <div className="dish-emoji">{emoji}</div>
-              </div><h3>{name}</h3><p>{text}</p></div><Link className="text-link" href={`/menu/${id}`}>View dish →</Link></article>;
+  const dish = getDish(id);
+
+  return (
+    <article className="dish-card">
+      <div>
+        <div className="dish-media">
+          {dish?.image ? (
+            <Image
+              src={dish.image}
+              alt={dish.name}
+              width={dish.imageWidth}
+              height={dish.imageHeight}
+              sizes="(max-width: 700px) calc(100vw - 3rem), (max-width: 1120px) calc((100vw - 6rem) / 3), 347px"
+              className="dish-image"
+            />
+          ) : (
+            <div className="dish-emoji">{emoji}</div>
+          )}
+        </div>
+        <h3>{name}</h3>
+        <p>{text}</p>
+      </div>
+      <Link className="text-link" href={`/menu/${id}`}>View dish →</Link>
+    </article>
+  );
 }

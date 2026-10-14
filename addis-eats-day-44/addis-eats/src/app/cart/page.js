@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCart } from "@/lib/cart";
 import { getSession } from "@/lib/session";
@@ -26,7 +27,7 @@ export default async function CartPage() {
             <div className="cart-list">
               {items.map(({ dish, dishId, quantity, subtotal }) => (
                 <article className="cart-row" key={dishId}>
-                  <div className="cart-dish-mark" aria-hidden="true">{dish.emoji}</div>
+                  <Image className="cart-dish-image" src={dish.image} alt="" width={64} height={64} />
                   <div className="cart-dish-info">
                     <h2>{dish.name}</h2>
                     <p>Quantity {quantity} · {dish.price} Birr each</p>

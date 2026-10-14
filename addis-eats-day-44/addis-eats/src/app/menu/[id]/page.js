@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { dishes, getDish } from "../data";
 import { addToCart } from "@/app/cart/actions";
@@ -31,6 +32,12 @@ export async function generateMetadata({ params }) {
         },
       ],
     },
+    twitter: {
+      card: "summary_large_image",
+      title: `${dish.name} | Addis Eats`,
+      description: dish.description,
+      images: [new URL(`/menu/${dish.id}/opengraph-image`, SITE_URL)],
+    },
   };
 }
 
@@ -59,7 +66,16 @@ export default async function DishPage({ params }) {
       />
       <article className="detail">
         <Link className="text-link" href="/menu">← Back to menu</Link>
-        <div className="detail-mark">{dish.emoji}</div>
+        <div className="detail-mark">
+          <Image
+            src={dish.image}
+            alt={dish.name}
+            width={dish.imageWidth}
+            height={dish.imageHeight}
+            sizes="(max-width: 700px) calc(100vw - 3rem), 420px"
+            className="detail-image"
+          />
+        </div>
         <p className="eyebrow">{dish.category}</p>
         <h1>{dish.name}</h1>
         <p>{dish.description}</p>
