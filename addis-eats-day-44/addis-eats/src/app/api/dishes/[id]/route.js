@@ -1,8 +1,8 @@
-import { dishes } from "@/app/menu/data";
+import { getDish } from "@/app/menu/data";
 
 export async function GET(_request, { params }) {
   const { id } = await params;
-  const dish = dishes.find((item) => item.id === id);
+  const dish = getDish(id);
 
   if (!dish) {
     return Response.json(

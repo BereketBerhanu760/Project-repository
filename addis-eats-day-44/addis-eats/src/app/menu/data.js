@@ -1,8 +1,25 @@
 import sourceDishes from "./dishes.json";
 
+function slugify(name) {
+  return name
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function dishSlug(dish) {
+  // Keep the established customer-facing spelling for this menu item.
+  if (dish.name.toLowerCase() === "doro wat") return "doro-wot";
+  return slugify(dish.name);
+}
+
 // The supplied catalog refers to /assets; the project stores these files in /images.
 export const dishes = sourceDishes.map((dish) => ({
   ...dish,
+  legacyId: dish.id,
+  id: dishSlug(dish),
   image: dish.image.replace(/^\/assets\//, "/images/"),
   ...({
     "cheese_burger.jpg": { imageWidth: 1200, imageHeight: 1200 },
@@ -35,7 +52,7 @@ export const menuCategories = [
 ];
 
 export function getDish(id) {
-  return dishes.find((dish) => dish.id === id);
+  return dishes.find((dish) => dish.id === id || dish.legacyId === id);
 }
 
 export function getDishPage({
@@ -47,7 +64,9 @@ export function getDishPage({
 } = {}) {
   const normalizedCategory = category.toLowerCase();
   const normalizedQuery = query.trim().toLowerCase();
-  const favoriteSet = new Set(favoriteIds);
+  const favoriteSet = new Set(favoriteIds.map((id) => {
+    return dishes.find((dish) => dish.legacyId === id)?.id || id;
+  }));
   const matchingDishes = dishes.filter((dish) => {
     const categoryMatches = normalizedCategory === "all"
       || dish.category.toLowerCase() === normalizedCategory;

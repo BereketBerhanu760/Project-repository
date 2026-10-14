@@ -9,7 +9,7 @@ export default function DishList({ dishes }) {
         <article className="dish-card" key={dish.id}>
           <div>
             <div className="dish-media">
-              <FavoriteButton dishId={dish.id} />
+              <FavoriteButton dishId={dish.id} legacyId={dish.legacyId} />
               {dish.image ? (
                 <Image
                   src={dish.image}

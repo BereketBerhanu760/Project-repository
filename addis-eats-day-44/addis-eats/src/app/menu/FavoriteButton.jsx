@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { getFavoriteIds, setFavoriteIds, subscribeToFavorites } from "@/lib/favorites";
 
-export default function FavoriteButton({ dishId, className = "" }) {
+export default function FavoriteButton({ dishId, legacyId, className = "" }) {
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
-    const sync = () => setIsFavorite(getFavoriteIds().includes(dishId));
+    const sync = () => {
+      const favorites = getFavoriteIds();
+      setIsFavorite(favorites.includes(dishId) || (legacyId && favorites.includes(legacyId)));
+    };
     sync();
     return subscribeToFavorites(sync);
   }, [dishId]);
@@ -15,8 +18,8 @@ export default function FavoriteButton({ dishId, className = "" }) {
   function toggleFavorite() {
     const favorites = getFavoriteIds();
     setFavoriteIds(
-      favorites.includes(dishId)
-        ? favorites.filter((id) => id !== dishId)
+      favorites.includes(dishId) || (legacyId && favorites.includes(legacyId))
+        ? favorites.filter((id) => id !== dishId && id !== legacyId)
         : [...favorites, dishId],
     );
   }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { dishes, getDish } from "../data";
 import { addToCart } from "@/app/cart/actions";
 import { SITE_URL } from "@/lib/site-url";
@@ -46,6 +46,7 @@ export default async function DishPage({ params }) {
   const { id } = await params;
   const dish = getDish(id);
   if (!dish) notFound();
+  if (id !== dish.id) permanentRedirect(`/menu/${dish.id}`);
   const dishJsonLd = {
     "@context": "https://schema.org",
     "@type": "MenuItem",
@@ -79,7 +80,7 @@ export default async function DishPage({ params }) {
         </div>
         <p className="eyebrow">{dish.category}</p>
         <h1>{dish.name}</h1>
-        <FavoriteButton dishId={dish.id} className="detail-favorite" />
+        <FavoriteButton dishId={dish.id} legacyId={dish.legacyId} className="detail-favorite" />
         <p>{dish.description}</p>
         {dish.tag ? <p className="dish-tag">{dish.tag}</p> : null}
         {dish.spicy ? <p className="dish-spicy">Spicy</p> : null}
