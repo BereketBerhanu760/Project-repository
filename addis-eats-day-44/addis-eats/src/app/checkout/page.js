@@ -7,6 +7,7 @@ import { listOrdersForOwner } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { appendSearchParams } from "@/lib/safe-return-to";
+import { etb } from "@/lib/format";
 
 export const metadata = {
   title: "Checkout",
@@ -41,11 +42,11 @@ export default async function CheckoutPage({ searchParams }) {
                 <strong>{order.name}</strong>
                 <p>
                   {order.items?.map(({ dishId, quantity }) => `${quantity} × ${getDish(dishId)?.name ?? dishId}`).join(", ") || order.dishId}
-                  {" · "}{order.totalETB} Birr
+                  {" · "}{etb(order.totalETB)}
                 </p>
               </div>
               <div className="order-actions">
-                <Link className="text-link" href={`/Orders/${order.id}`}>Track status</Link>
+                <Link className="text-link" href={`/track/${order.id}`}>Track status</Link>
                 <form action={cancelOrder.bind(null, order.id)}>
                   <button className="text-link" type="submit">Cancel order</button>
                 </form>

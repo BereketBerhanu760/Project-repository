@@ -22,7 +22,7 @@ export default function CheckoutForm({ items }) {
           <h1 id="order-confirmation">Almost at the table.</h1>
           <p role="status">{state.message}</p>
           <p className="status">Order reference: {state.orderId}</p>
-          <Link className="button" href={`/Orders/${state.orderId}`}>Track your order</Link>
+          <Link className="button" href={`/track/${state.orderId}`}>Track your order</Link>
           <Link className="button" href="/menu">Browse the menu</Link>
         </section>
       );
@@ -67,8 +67,13 @@ export default function CheckoutForm({ items }) {
       </label>
 
       <label>
-        Address
-        <textarea name="address" autoComplete="street-address" minLength={10} rows={3} required />
+        Delivery location
+        <select name="address" defaultValue="" required>
+          <option value="" disabled>Select a delivery location</option>
+          <option value="Megenagna">Megenagna</option>
+          <option value="Kazanchis">Kazanchis</option>
+          <option value="Fiyel bet">Fiyel bet</option>
+        </select>
         {state.fieldErrors?.address ? <span>{state.fieldErrors.address}</span> : null}
       </label>
 
