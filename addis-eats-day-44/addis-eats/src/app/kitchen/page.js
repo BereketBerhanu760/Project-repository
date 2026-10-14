@@ -4,7 +4,9 @@ import { listOrders } from "@/lib/order-store";
 import OrderTable from "./OrderTable";
 import RevenueChart from "./RevenueChart";
 import OrdersLineChart from "./OrdersLineChart";
-import { deleteAllOrders, deleteOrder, updateOrderStatus } from "./actions";
+import { deleteAllOrders, deleteOrder } from "./actions";
+import KitchenDeliveryRuns from "./KitchenDeliveryRuns";
+import { courierHomeBase, getDeliveryPoint } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -67,6 +69,13 @@ export default async function KitchenPage({ searchParams }) {
   const orders = demoState === "empty" ? [] : await listOrders();
   const revenueByNeighborhood = buildRevenueByNeighborhood(orders);
   const ordersByDay = buildOrdersByDay(orders);
+  const deliveryRuns = orders.map((order) => ({
+    id: order.id,
+    name: order.name,
+    address: order.address,
+    homeBasePos: { lat: courierHomeBase.lat, lng: courierHomeBase.lng },
+    deliveryPos: getDeliveryPoint(order.address),
+  }));
 
   return (
     <main className="main admin-dashboard">
@@ -79,6 +88,7 @@ export default async function KitchenPage({ searchParams }) {
 
       {orders.length ? (
         <>
+          <KitchenDeliveryRuns orders={deliveryRuns} />
           <RevenueChart data={revenueByNeighborhood} />
           <OrdersLineChart data={ordersByDay} />
           <section className="dashboard-orders" aria-labelledby="orders-heading">
@@ -86,16 +96,14 @@ export default async function KitchenPage({ searchParams }) {
             <OrderTable orders={orders} searchParams={params} />
           </section>
           <section className="kitchen-management" aria-labelledby="kitchen-heading">
-            <div className="section-heading"><h2 id="kitchen-heading">Kitchen management</h2><p>Update or remove an order</p></div>
+            <div className="section-heading"><h2 id="kitchen-heading">Order management</h2><p>Remove an order</p></div>
             <div className="order-history" aria-label="Kitchen order management">
-              {orders.map((order) => {
-                const currentStatus = ["pending", "delivering", "received"].includes(order.status?.toLowerCase()) ? order.status.toLowerCase() : "pending";
-                return <article className="order-row" key={order.id}>
+              {orders.map((order) => (
+                <article className="order-row" key={order.id}>
                   <div><strong>{order.name}</strong><p>{order.items?.map(({ dishId, quantity }) => `${quantity} × ${dishId}`).join(", ") || order.dishId}</p><p>Order {order.id}</p></div>
-                  <form action={updateOrderStatus} className="order-status-form"><input type="hidden" name="orderId" value={order.id} /><label className="sr-only" htmlFor={`status-${order.id}`}>Status for order {order.id}</label><select id={`status-${order.id}`} name="status" defaultValue={currentStatus}><option value="pending">Pending</option><option value="delivering">Delivering</option><option value="received">Received</option></select><button className="button" type="submit">Update status</button></form>
                   <details className="delete-order"><summary>Delete</summary><form action={deleteOrder}><input type="hidden" name="orderId" value={order.id} /><button className="danger-button" type="submit">Confirm delete</button></form></details>
-                </article>;
-              })}
+                </article>
+              ))}
             </div>
           </section>
         </>

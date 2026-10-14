@@ -127,8 +127,10 @@ async function readOrders() {
   for (const order of persisted) {
     if (order?.id) map.set(order.id, order);
   }
-  for (const order of inMemoryOrders) {
-    if (order?.id) map.set(order.id, order);
+  if (getPersistenceMode() !== "redis" || !persisted.length) {
+    for (const order of inMemoryOrders) {
+      if (order?.id) map.set(order.id, order);
+    }
   }
 
   const all = Array.from(map.values());
@@ -139,6 +141,21 @@ async function readOrders() {
 }
 
 async function readOrder(id) {
+  if (getPersistenceMode() === "redis") {
+    try {
+      const value = await redisCommand("HGET", ordersKey, id);
+      if (!value) {
+        globalThis.__addisEatsOrders.delete(id);
+        return null;
+      }
+      const order = typeof value === "string" ? JSON.parse(value) : value;
+      globalThis.__addisEatsOrders.set(id, order);
+      return order;
+    } catch (error) {
+      console.warn("Failed to read order from Redis:", error.message);
+      return globalThis.__addisEatsOrders.get(id) ?? null;
+    }
+  }
   if (globalThis.__addisEatsOrders.has(id)) {
     return globalThis.__addisEatsOrders.get(id);
   }
@@ -224,25 +241,26 @@ export async function getOrderById(id) {
   return readOrder(id);
 }
 
-export function updateOrderStatus(id, status) {
+export function updateCourierPosition(id, courierPos, status) {
   return serialize(async () => {
     const order = await readOrder(id);
     if (!order) return false;
-    order.status = status;
+    order.courierPos = { lat: courierPos.lat, lng: courierPos.lng };
+    if (status) order.status = status;
+    order.updatedAt = new Date().toISOString();
     globalThis.__addisEatsOrders.set(id, order);
-
-    const all = await readOrders();
-    const updated = all.map((item) => item.id === id ? order : item);
-    await setCookieOrders(updated);
 
     try {
       if (getPersistenceMode() === "redis") {
         await redisCommand("HSET", ordersKey, id, JSON.stringify(order));
       } else {
+        const all = await readOrders();
+        const updated = all.map((item) => item.id === id ? order : item);
+        await setCookieOrders(updated);
         await writeLocalOrders(updated);
       }
     } catch (error) {
-      console.warn("updateOrderStatus persistence failed:", error.message);
+      console.warn("updateCourierPosition persistence failed:", error.message);
     }
     return true;
   });

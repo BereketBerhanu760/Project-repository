@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { deliveryLocationNames } from "@/lib/delivery-locations";
 
 export const orderSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters."),
   phone: z.string().trim().regex(/^(\+251|251|0)?9\d{8}$/, "Phone number is invalid."),
-  address: z.string().trim().min(10, "Address must be at least 10 characters."),
+  address: z.enum(deliveryLocationNames, "Choose one of the listed delivery locations."),
   totalETB: z.coerce.number().positive("Total must be greater than zero."),
   dishId: z.string().trim().min(1, "Dish is required."),
 });

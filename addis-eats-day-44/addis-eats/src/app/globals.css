@@ -107,9 +107,6 @@ h1 { max-width: 720px; margin-bottom: 1.25rem; color: var(--green-dark); font-si
 .signin-form { margin: 2rem 0; }
 .signin-form > p { color: var(--muted); }
 .order-actions form { margin: 0; }
-.order-status-form { display: flex; align-items: center; gap: .65rem; }
-.order-status-form select { min-width: 130px; border: 1px solid #cdd7c8; border-radius: 6px; padding: .6rem; background: #fffdf8; color: var(--ink); font: inherit; }
-.order-status-form .button { padding: .65rem .9rem; }
 .delete-order, .delete-all-orders { color: #8d2d27; font-family: Arial, sans-serif; }
 .delete-order summary, .delete-all-orders summary { width: fit-content; cursor: pointer; font-weight: 700; }
 .delete-order form { margin-top: .5rem; }
@@ -157,11 +154,59 @@ h1 { max-width: 720px; margin-bottom: 1.25rem; color: var(--green-dark); font-si
 .pagination a { border-radius: 5px; padding: .25rem .4rem; text-decoration: underline; text-underline-offset: .15em; }
 .kitchen-management .order-history { max-width: none; }
 
+.track-order-page .tracking-intro { max-width: 900px; }
+.tracking-intro h1 { font-size: clamp(2.8rem, 6vw, 5rem); }
+.tracking-reference { overflow-wrap: anywhere; font-family: Arial, sans-serif; font-size: .95rem; }
+.tracking-order-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0 0; }
+.tracking-order-summary div { min-width: 0; border-top: 1px solid #dce3d8; padding-top: .8rem; }
+.tracking-order-summary dt, .tracking-location-details dt { color: var(--muted); font-family: Arial, sans-serif; font-size: .8rem; font-weight: 700; }
+.tracking-order-summary dd, .tracking-location-details dd { margin: .35rem 0 0; line-height: 1.45; }
+.tracking-live { margin: 2rem 0; }
+.tracking-status-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: .35rem; }
+.tracking-status-heading .eyebrow { margin-bottom: .4rem; }
+.tracking-current-status { margin: 0; color: var(--green-dark); font-size: clamp(1.6rem, 4vw, 2.25rem); }
+.tracking-connection { margin: 0; border-radius: 999px; padding: .45rem .7rem; background: #edf5ed; color: #245d3a; font-family: Arial, sans-serif; font-size: .82rem; }
+.tracking-updated { color: var(--muted); font-family: Arial, sans-serif; font-size: .9rem; }
+.tracking-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(250px, .8fr); gap: 1.25rem; align-items: stretch; }
+.delivery-map-frame { width: 100%; height: 360px; min-height: 360px; overflow: hidden; border: 1px solid #cdd7c8; border-radius: 12px; background: #edf0e8; }
+.delivery-map-surface { width: 100%; height: 100%; }
+.delivery-map-placeholder { display: grid; width: 100%; height: 360px; min-height: 360px; place-items: center; background: linear-gradient(135deg, #edf0e8, #f5f1e4); color: var(--muted); font-family: Arial, sans-serif; }
+.custom-leaflet-icon.leaflet-div-icon { display: grid; place-items: center; border: 0; background: transparent; transition: transform 200ms linear !important; }
+.custom-leaflet-icon span { display: grid; width: 38px; height: 38px; place-items: center; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 7px #17231b66; color: white; }
+.custom-leaflet-icon svg { width: 21px; height: 21px; }
+.store-map-icon span { background: #144734; }
+.courier-map-icon span { background: #1c5686; }
+.destination-map-icon span { background: #9a5620; }
+.delivery-run-panel { margin: 2rem 0 3rem; border: 1px solid #e3ddca; border-radius: 14px; padding: 1.25rem; background: #fffdf8; }
+.delivery-run-panel .section-heading h2 { margin: 0 0 .3rem; color: var(--green-dark); font-size: 1.5rem; }
+.delivery-run-panel .section-heading p { margin-top: 0; color: var(--muted); }
+.delivery-run-controls { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.delivery-run-controls label { display: grid; gap: .35rem; min-width: min(100%, 300px); font-weight: 700; }
+.delivery-run-controls select { min-height: 44px; border: 1px solid #cdd7c8; border-radius: 7px; padding: .5rem .65rem; background: #fff; font: inherit; }
+.delivery-run-controls button.text-link { border: 0; padding: .8rem; background: transparent; color: var(--green); font: inherit; font-weight: 700; cursor: pointer; }
+.delivery-run-controls button:disabled { cursor: not-allowed; opacity: .6; }
+.delivery-run-controls p { flex-basis: 100%; margin: 0; color: var(--muted); font-family: Arial, sans-serif; font-size: .9rem; }
+.tracking-location-details { border: 1px solid #e3ddca; border-radius: 12px; padding: 1.2rem; background: #fffdf8; }
+.tracking-location-details h3 { margin: 0 0 1rem; color: var(--green-dark); }
+.tracking-location-details dl { display: grid; gap: 1.1rem; margin: 0; }
+.tracking-location-details dd span { color: var(--muted); font-family: Arial, sans-serif; font-size: .8rem; }
+.tracking-map-note { margin: 1.25rem 0 0; color: var(--muted); font-family: Arial, sans-serif; font-size: .8rem; line-height: 1.5; }
+.tracking-page-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+.order-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.order-history-heading h2 { margin: 0; color: var(--green-dark); }
+.order-history-export { font-size: .85rem; }
+
 @media (max-width: 700px) {
   .dashboard-chart { padding: .8rem; }
   .chart-svg { min-width: 620px; }
   .orders-table { min-width: 700px; }
   .skeleton-row { grid-template-columns: 1fr 1fr; }
+  .tracking-order-summary { grid-template-columns: 1fr; gap: .8rem; }
+  .tracking-status-heading { align-items: flex-start; flex-direction: column; }
+  .tracking-grid { grid-template-columns: 1fr; }
+  .delivery-map-frame, .delivery-map-placeholder { height: 320px; min-height: 320px; }
+  .order-history-heading { align-items: flex-start; flex-direction: column; }
+  .tracking-page-actions { align-items: flex-start; flex-direction: column; }
 }
 /* Add/Replace these rules in globals.css */
 
