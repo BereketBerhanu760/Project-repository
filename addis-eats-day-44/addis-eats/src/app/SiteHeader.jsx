@@ -46,7 +46,6 @@ export default function SiteHeader({ session }) {
         {session ? <SignOutForm /> : (
           <>
             <Link href="/signin" onClick={closeMenu}>Sign in</Link>
-            <Link href="/signup" onClick={closeMenu}>Sign up</Link>
           </>
         )}
       </nav>

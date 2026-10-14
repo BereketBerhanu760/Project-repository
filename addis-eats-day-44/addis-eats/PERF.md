@@ -16,7 +16,7 @@
 
 ![alt text](image-1.png)
 
-## Network throttle 4G
+## Network throttle Slow 4G
 
 ![alt text](image-2.png)
 
