@@ -33,7 +33,7 @@ export default async function CheckoutPage({ searchParams }) {
       <div className="account-bar">
         <span>Signed in as {session.username}</span>
       </div>
-      <CheckoutForm items={cart} />
+      <CheckoutForm items={cart} customerId={session.id} />
       <section className="order-history" aria-labelledby="orders-heading">
         <h2 id="orders-heading">Your recent orders</h2>
         {orders.length ? orders.map((order) => {

@@ -41,7 +41,23 @@ export async function placeOrder(_previousState, formData) {
     revalidatePath("/cart");
     revalidatePath("/checkout");
     revalidatePath("/Orders");
-    return { status: "success", message: "Order placed successfully.", fieldErrors: {}, orderId: order.id };
+    return {
+      status: "success",
+      message: "Order placed successfully.",
+      fieldErrors: {},
+      orderId: order.id,
+      customerOrder: {
+        id: order.id,
+        name: order.name,
+        phone: order.phone,
+        address: order.address,
+        items: order.items,
+        dishId: order.dishId,
+        totalETB: order.totalETB,
+        status: order.status,
+        createdAt: order.createdAt,
+      },
+    };
   } catch (error) {
     if (error?.digest?.startsWith?.("NEXT_REDIRECT")) throw error;
     console.error("placeOrder server action failed:", error);

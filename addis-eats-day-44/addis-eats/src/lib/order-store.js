@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { getPersistenceMode, redisCommand } from "@/lib/storage";
 
 const ordersKey = "addis-eats:orders";
-const ordersCookieName = "addis_orders";
 let pendingWrite = Promise.resolve();
 
 // Maintain an in-memory cache on globalThis for serverless resilience
@@ -32,36 +31,6 @@ function getStorePaths() {
     directory: join(process.cwd(), ".data"),
     filePath: join(process.cwd(), ".data", "orders.json"),
   };
-}
-
-async function getCookieOrders() {
-  try {
-    const { cookies } = await import("next/headers");
-    const cookieStore = await cookies();
-    const raw = cookieStore.get(ordersCookieName)?.value;
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function setCookieOrders(orders) {
-  try {
-    const { cookies } = await import("next/headers");
-    const cookieStore = await cookies();
-    const compact = orders.slice(-15);
-    cookieStore.set(ordersCookieName, JSON.stringify(compact), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-  } catch {
-    // Non-mutation context or headers committed
-  }
 }
 
 async function readLocalOrders() {
@@ -106,7 +75,6 @@ async function readRedisOrders() {
 
 async function readOrders() {
   const inMemoryOrders = Array.from(globalThis.__addisEatsOrders.values());
-  const cookieOrders = await getCookieOrders();
   let persisted = [];
 
   try {
@@ -119,11 +87,8 @@ async function readOrders() {
     console.warn("readOrders persistence error:", error.message);
   }
 
-  // Merge cookie, disk/redis, and in-memory orders (newest wins by id)
+  // Merge disk/Redis and in-memory orders (newest wins by id)
   const map = new Map();
-  for (const order of cookieOrders) {
-    if (order?.id) map.set(order.id, order);
-  }
   for (const order of persisted) {
     if (order?.id) map.set(order.id, order);
   }
@@ -200,12 +165,10 @@ export function saveOrder(order) {
     // 1. In-memory
     globalThis.__addisEatsOrders.set(order.id, order);
 
-    // 2. Cookie store (persists across serverless lambdas in the same browser session)
+    // 2. Persistent disk or Redis store
     const all = await readOrders();
     const updated = [...all.filter((item) => item.id !== order.id), order];
-    await setCookieOrders(updated);
 
-    // 3. Disk / Redis
     try {
       if (getPersistenceMode() === "redis") {
         await redisCommand("HSET", ordersKey, order.id, JSON.stringify(order));
@@ -256,7 +219,6 @@ export function updateCourierPosition(id, courierPos, status) {
       } else {
         const all = await readOrders();
         const updated = all.map((item) => item.id === id ? order : item);
-        await setCookieOrders(updated);
         await writeLocalOrders(updated);
       }
     } catch (error) {
@@ -271,7 +233,6 @@ export function deleteOrderById(id) {
     globalThis.__addisEatsOrders.delete(id);
     const all = await readOrders();
     const remaining = all.filter((order) => order.id !== id);
-    await setCookieOrders(remaining);
 
     try {
       if (getPersistenceMode() === "redis") {
@@ -290,7 +251,6 @@ export function deleteAllOrders() {
   return serialize(async () => {
     const count = globalThis.__addisEatsOrders.size;
     globalThis.__addisEatsOrders.clear();
-    await setCookieOrders([]);
 
     try {
       if (getPersistenceMode() === "redis") {
@@ -315,7 +275,6 @@ export function removeOrderForOwner(id, owner) {
     globalThis.__addisEatsOrders.delete(id);
     const all = await readOrders();
     const remaining = all.filter((item) => item.id !== id);
-    await setCookieOrders(remaining);
 
     try {
       if (getPersistenceMode() === "redis") {

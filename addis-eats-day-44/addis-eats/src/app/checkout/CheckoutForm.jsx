@@ -11,7 +11,7 @@ const initialState = {
   fieldErrors: {},
 };
 
-export default function CheckoutForm({ items }) {
+export default function CheckoutForm({ items, customerId }) {
   const [state, formAction, isPending] = useActionState(placeOrder, initialState);
   const submitLock = useRef(false);
   const total = items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -19,6 +19,22 @@ export default function CheckoutForm({ items }) {
   useEffect(() => {
     if (!isPending && state.status === "error") submitLock.current = false;
   }, [isPending, state.status]);
+
+  useEffect(() => {
+    if (state.status !== "success" || !state.customerOrder || !customerId) return;
+    try {
+      const key = `addis_orders:${customerId}`;
+      const savedOrders = JSON.parse(window.localStorage.getItem(key) || "[]");
+      const previous = Array.isArray(savedOrders) ? savedOrders : [];
+      const updated = [
+        ...previous.filter((order) => order?.id !== state.customerOrder.id),
+        state.customerOrder,
+      ].slice(-15);
+      window.localStorage.setItem(key, JSON.stringify(updated));
+    } catch {
+      // Browser storage can be unavailable or full; the server store remains authoritative.
+    }
+  }, [customerId, state]);
 
   function guardDuplicateSubmit(event) {
     if (submitLock.current || isPending) {

@@ -4,6 +4,7 @@ import { getDish } from "@/app/menu/data";
 import { getSession } from "@/lib/session";
 import { listOrders, listOrdersForOwner } from "@/lib/order-store";
 import { etb, when } from "@/lib/format";
+import CustomerOrderHistory from "./CustomerOrderHistory";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -38,14 +39,12 @@ export default async function OrdersPage() {
         className="order-history"
         aria-label={isStaff ? "All orders" : "Your orders"}
       >
-        {orders.length ? (
-          <div className="order-history-heading">
-            <h2>Order history</h2>
-          </div>
-        ) : null}
-
-        {orders.length ? (
-          orders.map((order) => (
+        {isStaff ? (orders.length ? (
+          <>
+            <div className="order-history-heading">
+              <h2>Order history</h2>
+            </div>
+            {orders.map((order) => (
             <article className="order-row" key={order.id}>
               <div>
                 <strong>{order.name}</strong>
@@ -65,13 +64,10 @@ export default async function OrdersPage() {
                 Track order
               </Link>
             </article>
-          ))
-        ) : (
-          <p>
-            {isStaff
-              ? "No orders have been placed yet."
-              : "You have no orders yet."}
-          </p>
+            ))}
+          </>
+        ) : <p>No orders have been placed yet.</p>) : (
+          <CustomerOrderHistory customerId={session.id} initialOrders={orders} />
         )}
       </section>
 
