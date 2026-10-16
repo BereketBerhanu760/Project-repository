@@ -15,7 +15,7 @@ function coordinates(point, precision = 5) {
   return `${point.lat.toFixed(precision)}, ${point.lng.toFixed(precision)}`;
 }
 
-export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
+export default function TrackingLive({ id, initialSnapshot, initialRelative, liveUpdates = true }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [courierPos, setCourierPos] = useState(initialSnapshot.homeBase);
   const [routeCoords, setRouteCoords] = useState([]);
@@ -64,6 +64,10 @@ export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
   }, [routeCoords]);
 
   useEffect(() => {
+    if (!liveUpdates) {
+      setConnection("Saved on this device · server live updates unavailable");
+      return undefined;
+    }
     if (initialSnapshot.status === "received") return undefined;
 
     const source = new EventSource(`/api/orders/${encodeURIComponent(id)}/stream`);
@@ -104,7 +108,7 @@ export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
       active = false;
       source.close();
     };
-  }, [id, initialSnapshot.status]);
+  }, [id, initialSnapshot.status, liveUpdates]);
 
   return (
     <section className="tracking-live" aria-labelledby="tracking-status-heading">

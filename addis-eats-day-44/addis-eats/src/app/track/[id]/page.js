@@ -7,6 +7,7 @@ import { trackingSnapshot } from "@/lib/tracking";
 import { appendSearchParams } from "@/lib/safe-return-to";
 import { getDish } from "@/app/menu/data";
 import TrackingLive from "./TrackingLive";
+import LocalOrderTrackingFallback from "./LocalOrderTrackingFallback";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -27,7 +28,12 @@ export default async function TrackOrderPage({ params, searchParams }) {
   const order = session.role === "staff"
     ? await getOrderById(id)
     : await getOrderForOwner(id, session.id);
-  if (!order) notFound();
+  if (!order) {
+    if (session.role === "customer") {
+      return <LocalOrderTrackingFallback id={id} customerId={session.id} />;
+    }
+    notFound();
+  }
 
   const initialSnapshot = trackingSnapshot(order);
   const itemSummary = order.items?.map(({ dishId, quantity }) => {
