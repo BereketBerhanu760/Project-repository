@@ -1,8 +1,7 @@
 import CategoryBar from "./CategoryBar";
 import SearchBox from "./SearchBox";
-import { getDishPage, menuCategories } from "./data";
-
-export const revalidate = 60;
+import { connection } from "next/server";
+import { getMenuCategories, getMenuDishPage } from "@/lib/menu-store";
 
 export const metadata = {
   title: "Menu",
@@ -11,12 +10,14 @@ export const metadata = {
 };
 
 export default async function MenuPage({ searchParams }) {
+  await connection();
   const params = await searchParams;
   const category = params?.category || "all";
   const query = params?.q || "";
   const requestedPage = Number.parseInt(params?.page || "1", 10);
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1;
-  const initialData = getDishPage({ category, query, page });
+  const initialData = await getMenuDishPage({ category, query, page });
+  const categories = await getMenuCategories();
   const menuJsonLd = {
     "@context": "https://schema.org",
     "@type": "Menu",
@@ -46,7 +47,7 @@ export default async function MenuPage({ searchParams }) {
         <p className="hero-copy">Ethiopian, burgers, pizza, sides, and drinks, prepared fresh and ready to share.</p>
       </div>
 
-      <CategoryBar categories={menuCategories} selected={category}>
+      <CategoryBar categories={categories} selected={category}>
         <SearchBox
           category={category}
           page={initialData.page}

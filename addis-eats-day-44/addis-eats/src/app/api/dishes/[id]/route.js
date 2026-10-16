@@ -1,8 +1,10 @@
-import { getDish } from "@/app/menu/data";
+import { getMenuDish } from "@/lib/menu-store";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(_request, { params }) {
   const { id } = await params;
-  const dish = getDish(id);
+  const dish = await getMenuDish(id);
 
   if (!dish) {
     return Response.json(

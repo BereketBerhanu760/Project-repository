@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { getDish } from "@/app/menu/data";
+import { getMenuDish } from "@/lib/menu-store";
 import { getSession } from "@/lib/session";
 
 const anonymousCartCookie = "cart";
@@ -21,23 +21,18 @@ function cartCookieOptions() {
   };
 }
 
-function decodeCart(value) {
+async function decodeCart(value) {
   try {
     const entries = JSON.parse(value || "[]");
     if (!Array.isArray(entries)) return [];
     const merged = new Map();
     for (const entry of entries) {
-      const dish = getDish(entry?.dishId);
+      const dish = await getMenuDish(entry?.dishId);
       const quantity = Number(entry?.quantity);
       if (!dish || !Number.isInteger(quantity) || quantity < 1) continue;
       merged.set(dish.id, Math.min(10, (merged.get(dish.id) || 0) + quantity));
     }
-    return [...merged].map(([dishId, quantity]) => ({
-      dish: getDish(dishId),
-      dishId,
-      quantity,
-      subtotal: getDish(dishId).price * quantity,
-    }));
+    return [...merged].map(([dishId, quantity]) => ({ dishId, quantity }));
   } catch {
     return [];
   }
@@ -47,7 +42,11 @@ export async function getCart() {
   const session = await getSession();
   if (session?.role === "staff") return [];
   const value = (await cookies()).get(cartCookieName(session))?.value;
-  return decodeCart(value);
+  const entries = await decodeCart(value);
+  return Promise.all(entries.map(async ({ dishId, quantity }) => {
+    const dish = await getMenuDish(dishId);
+    return dish ? { dish, dishId, quantity, subtotal: dish.price * quantity } : null;
+  })).then((items) => items.filter(Boolean));
 }
 
 export async function saveCart(items) {

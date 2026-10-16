@@ -1,5 +1,5 @@
 import { orderSchema, flattenZodErrors } from "@/lib/schema";
-import { getDish } from "@/app/menu/data";
+import { getMenuDish } from "@/lib/menu-store";
 import { saveOrder } from "@/lib/order-store";
 import { getSession } from "@/lib/session";
 
@@ -22,7 +22,7 @@ export async function POST(request) {
       errors: flattenZodErrors(result.error),
     }, { status: 422 });
   }
-  if (!getDish(result.data.dishId)) {
+  if (!(await getMenuDish(result.data.dishId))) {
     return Response.json({ message: "Invalid order payload.", errors: { dishId: "This dish is not on the menu." } }, { status: 422 });
   }
 

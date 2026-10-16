@@ -17,7 +17,7 @@ export default function RevenueChart({ data }) {
   const barWidth = data.length ? Math.min(56, chartWidth / data.length * 0.55) : 0;
 
   return (
-    <section className="dashboard-chart" aria-labelledby="revenue-heading">
+    <section className="dashboard-chart" id="revenue" aria-labelledby="revenue-heading">
       <div className="section-heading"><div><h2 id="revenue-heading">Revenue by neighborhood</h2><p>Order total · ETB</p></div></div>
       <div className="chart-frame">
         <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="revenue-heading revenue-description">

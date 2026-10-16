@@ -1,6 +1,6 @@
 import sourceDishes from "./dishes.json";
 
-function slugify(name) {
+export function slugify(name) {
   return name
     .normalize("NFKD")
     .toLowerCase()
@@ -55,7 +55,7 @@ export function getDish(id) {
   return dishes.find((dish) => dish.id === id || dish.legacyId === id);
 }
 
-export function getDishPage({
+export function createDishPage(menuDishes, {
   category = "all",
   query = "",
   page = 1,
@@ -65,9 +65,9 @@ export function getDishPage({
   const normalizedCategory = category.toLowerCase();
   const normalizedQuery = query.trim().toLowerCase();
   const favoriteSet = new Set(favoriteIds.map((id) => {
-    return dishes.find((dish) => dish.legacyId === id)?.id || id;
+    return menuDishes.find((dish) => dish.legacyId === id)?.id || id;
   }));
-  const matchingDishes = dishes.filter((dish) => {
+  const matchingDishes = menuDishes.filter((dish) => {
     const categoryMatches = normalizedCategory === "all"
       || dish.category.toLowerCase() === normalizedCategory;
     const queryMatches = !normalizedQuery
@@ -87,4 +87,8 @@ export function getDishPage({
     total: matchingDishes.length,
     totalPages,
   };
+}
+
+export function getDishPage(options = {}) {
+  return createDishPage(dishes, options);
 }

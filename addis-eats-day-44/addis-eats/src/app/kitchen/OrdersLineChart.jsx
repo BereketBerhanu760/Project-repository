@@ -15,7 +15,7 @@ export default function OrdersLineChart({ data }) {
   const path = points.map((point, index) => `${index ? "L" : "M"}${point.x},${point.y}`).join(" ");
 
   return (
-    <section className="dashboard-chart" aria-labelledby="orders-trend-heading">
+    <section className="dashboard-chart" id="orders-trend" aria-labelledby="orders-trend-heading">
       <div className="section-heading"><div><h2 id="orders-trend-heading">Orders per day · last 7 days</h2><p>Number of orders</p></div></div>
       <div className="chart-frame">
         <svg className="chart-svg line-chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="orders-trend-heading orders-trend-description">

@@ -1,9 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCart } from "@/lib/cart";
 import { getSession } from "@/lib/session";
-import { removeFromCart } from "./actions";
+import CartItems from "./CartItems";
 
 export const metadata = {
   title: "Your cart",
@@ -13,7 +12,8 @@ export const metadata = {
 };
 
 export default async function CartPage() {
-  if ((await getSession())?.role === "staff") redirect("/kitchen");
+  const session = await getSession();
+  if (session?.role === "staff") redirect("/kitchen");
   const items = await getCart();
   const total = items.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -24,29 +24,7 @@ export default async function CartPage() {
         <h1>{items.length ? "Ready when you are." : "Your cart is waiting."}</h1>
         {items.length ? (
           <>
-            <div className="cart-list">
-              {items.map(({ dish, dishId, quantity, subtotal }) => (
-                <article className="cart-row" key={dishId}>
-                  <Image
-                    className="cart-dish-image"
-                    src={dish.image}
-                    alt={`${dish.imageAlt || dish.name} in your cart`}
-                    width={dish.imageWidth}
-                    height={dish.imageHeight}
-                    sizes="72px"
-                  />
-                  <div className="cart-dish-info">
-                    <h2>{dish.name}</h2>
-                    <p>Quantity {quantity} · {dish.price} Birr each</p>
-                  </div>
-                  <strong>{subtotal} Birr</strong>
-                  <form action={removeFromCart}>
-                    <input type="hidden" name="dishId" value={dishId} />
-                    <button className="text-link" type="submit">Remove</button>
-                  </form>
-                </article>
-              ))}
-            </div>
+            <CartItems items={items} />
             <div className="cart-total"><strong>Total</strong><strong>{total} Birr</strong></div>
             <Link className="button" href="/checkout">Continue to checkout</Link>
           </>

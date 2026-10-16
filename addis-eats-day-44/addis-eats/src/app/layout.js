@@ -2,6 +2,7 @@ import "./globals.css";
 import localFont from "next/font/local";
 import SiteHeader from "./SiteHeader";
 import { getSession } from "@/lib/session";
+import { getCart } from "@/lib/cart";
 
 const geist = localFont({
   src: "./fonts/Geist-Regular.ttf",
@@ -35,12 +36,15 @@ export const metadata = {
 
 export default async function RootLayout({ children }) {
   const session = await getSession();
+  const cart = session?.role === "staff" ? [] : await getCart();
+  const cartItems = cart.map(({ dishId, quantity }) => ({ dishId, quantity }));
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <html lang="en" className={geist.variable}>
       <body>
-        <div className="site-shell">
-          <SiteHeader session={session} />
+        <div className={session?.role === "staff" ? "site-shell admin-shell" : "site-shell"}>
+          <SiteHeader session={session} cartItems={cartItems} cartCount={cartCount} />
           {children}
           <footer className="site-footer">Addis Eats · Flavours worth gathering around.</footer>
         </div>

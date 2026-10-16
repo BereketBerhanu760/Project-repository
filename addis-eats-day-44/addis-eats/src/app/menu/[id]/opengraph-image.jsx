@@ -2,15 +2,17 @@ import { ImageResponse } from "next/og";
 import { notFound } from "next/navigation";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getDish } from "../data";
+import { connection } from "next/server";
+import { getMenuDish } from "@/lib/menu-store";
 
 export const alt = "Addis Eats Ethiopian dish";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpenGraphImage({ params }) {
+  await connection();
   const { id } = await params;
-  const dish = getDish(id);
+  const dish = await getMenuDish(id);
   if (!dish) notFound();
   const image = await readFile(join(process.cwd(), "public", dish.image.slice(1)));
   const imageSource = `data:image/jpeg;base64,${image.toString("base64")}`;

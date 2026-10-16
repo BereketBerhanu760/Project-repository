@@ -5,11 +5,11 @@ import OrderTable from "./OrderTable";
 import RevenueChart from "./RevenueChart";
 import OrdersLineChart from "./OrdersLineChart";
 import { deleteAllOrders, deleteOrder } from "./actions";
-import KitchenDeliveryRuns from "./KitchenDeliveryRuns";
-import { courierHomeBase, getDeliveryPoint } from "@/lib/tracking";
 import { getDish } from "@/app/menu/data";
 import { etb, when } from "@/lib/format";
 import OrderHistoryExport from "../Orders/OrderHistoryExport";
+import MenuManagement from "./menu/MenuManagement";
+import { listMenuDishes } from "@/lib/menu-store";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -69,38 +69,40 @@ export default async function KitchenPage({ searchParams }) {
     return <main className="main"><section className="simple-panel"><p className="eyebrow">Staff only · Admin</p><h1>Dashboard loading.</h1></section><div className="dashboard-table-skeleton" role="status" aria-label="Loading dashboard"><span className="sr-only">Loading dashboard data…</span>{Array.from({ length: 5 }, (_, index) => <div className="skeleton-row" key={index}><i /><i /><i /><i /></div>)}</div></main>;
   }
 
-  const orders = demoState === "empty" ? [] : await listOrders();
+  const [orders, menuDishes] = await Promise.all([
+    demoState === "empty" ? Promise.resolve([]) : listOrders(),
+    listMenuDishes({ includeHidden: true }),
+  ]);
+  const menuCategories = [...new Set(menuDishes.map((dish) => dish.category))];
   const revenueByNeighborhood = buildRevenueByNeighborhood(orders);
   const ordersByDay = buildOrdersByDay(orders);
-  const deliveryRuns = orders.map((order) => ({
-    id: order.id,
-    name: order.name,
-    address: order.address,
-    homeBasePos: { lat: courierHomeBase.lat, lng: courierHomeBase.lng },
-    deliveryPos: getDeliveryPoint(order.address),
-  }));
-
+  const menuNotice = params?.menuDeleted
+    ? "Dish deleted from the customer and admin menus."
+    : params?.menuUpdated === "add"
+      ? "Dish added to the menu."
+      : params?.menuUpdated === "edit"
+        ? "Dish updated."
+        : "";
   return (
     <main className="main admin-dashboard">
-      <section className="simple-panel">
+      <section className="simple-panel" id="dashboard-overview">
         <p className="eyebrow">Staff only · Admin</p>
         <h1>Addis Eats dashboard.</h1>
         <p>Signed in as {session.username}. Revenue is grouped by neighborhood; order activity covers the last seven days.</p>
+        {!orders.length ? <p role="status">No orders yet. Dashboard sections will fill in when customers place orders.</p> : null}
         {orders.length ? <details className="delete-all-orders"><summary>Clear all orders</summary><p>This permanently deletes all {orders.length} orders and removes them from customer tracking.</p><form action={deleteAllOrders}><button className="danger-button" type="submit">Confirm clear all</button></form></details> : null}
       </section>
 
-      {orders.length ? (
-        <>
-          <KitchenDeliveryRuns orders={deliveryRuns} />
+      <>
           <RevenueChart data={revenueByNeighborhood} />
           <OrdersLineChart data={ordersByDay} />
-          <section className="dashboard-orders" aria-labelledby="orders-heading">
+          <section className="dashboard-orders" id="orders" aria-labelledby="orders-heading">
             <div className="section-heading">
               <div>
                 <h2 id="orders-heading">Orders</h2>
                 <p>{orders.length} total</p>
               </div>
-              <OrderHistoryExport
+              {orders.length ? <OrderHistoryExport
                 rows={orders.map((order) => [
                   order.id,
                   order.name,
@@ -113,25 +115,28 @@ export default async function KitchenPage({ searchParams }) {
                   etb(order.totalETB),
                   when(order.createdAt),
                 ])}
-              />
+              /> : null}
             </div>
             <OrderTable orders={orders} searchParams={params} />
           </section>
-          <section className="kitchen-management" aria-labelledby="kitchen-heading">
+          <section className="kitchen-management" id="order-management" aria-labelledby="kitchen-heading">
             <div className="section-heading"><h2 id="kitchen-heading">Order management</h2><p>Remove an order</p></div>
             <div className="order-history" aria-label="Kitchen order management">
-              {orders.map((order) => (
+              {orders.length ? orders.map((order) => (
                 <article className="order-row" key={order.id}>
                   <div><strong>{order.name}</strong><p>{order.items?.map(({ dishId, quantity }) => `${quantity} × ${dishId}`).join(", ") || order.dishId}</p><p>Order {order.id}</p></div>
                   <details className="delete-order"><summary>Delete</summary><form action={deleteOrder}><input type="hidden" name="orderId" value={order.id} /><button className="danger-button" type="submit">Confirm delete</button></form></details>
                 </article>
-              ))}
+              )) : <p>No orders to manage.</p>}
             </div>
           </section>
-        </>
-      ) : (
-        <section className="dashboard-empty" role="status"><p className="eyebrow">No order data</p><h2>Your dashboard is ready.</h2><p>Revenue and order activity will appear here after the first customer order.</p></section>
-      )}
+          <MenuManagement
+            dishes={menuDishes}
+            categories={menuCategories}
+            error={params?.menuError || ""}
+            notice={menuNotice}
+          />
+      </>
     </main>
   );
 }

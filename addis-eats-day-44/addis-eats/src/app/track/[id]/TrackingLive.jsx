@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { relative, when } from "@/lib/format";
 import { trackingStatusLabel } from "@/lib/tracking";
+import { fetchRoadRoute } from "@/lib/road-route";
 
 const DeliveryMap = dynamic(() => import("@/components/DeliveryMap"), {
   ssr: false,
@@ -16,10 +17,51 @@ function coordinates(point, precision = 5) {
 
 export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [courierPos, setCourierPos] = useState(initialSnapshot.homeBase);
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [simulationFinished, setSimulationFinished] = useState(false);
   const [relativeTime, setRelativeTime] = useState(initialRelative);
   const [connection, setConnection] = useState(
     initialSnapshot.status === "received" ? "Delivered · live updates closed" : "Connecting to live updates…",
   );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchRoadRoute(initialSnapshot.homeBase, initialSnapshot.delivery, controller.signal)
+      .then((points) => setRouteCoords(points))
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          const start = initialSnapshot.homeBase;
+          const end = initialSnapshot.delivery;
+          const fallbackPoints = Array.from({ length: 61 }, (_, index) => {
+            const progress = index / 60;
+            return {
+              lat: start.lat + (end.lat - start.lat) * progress,
+              lng: start.lng + (end.lng - start.lng) * progress,
+            };
+          });
+          setRouteCoords(fallbackPoints);
+        }
+      });
+    return () => controller.abort();
+  }, [initialSnapshot.homeBase.lat, initialSnapshot.homeBase.lng, initialSnapshot.delivery.lat, initialSnapshot.delivery.lng]);
+
+  useEffect(() => {
+    if (routeCoords.length < 2) return undefined;
+    let routeIndex = 0;
+    const timer = window.setInterval(() => {
+      routeIndex += 1;
+      const nextPosition = routeCoords[routeIndex];
+      if (!nextPosition || routeIndex >= routeCoords.length - 1) {
+        setCourierPos(routeCoords[routeCoords.length - 1]);
+        setSimulationFinished(true);
+        window.clearInterval(timer);
+        return;
+      }
+      setCourierPos(nextPosition);
+    }, 200);
+    return () => window.clearInterval(timer);
+  }, [routeCoords]);
 
   useEffect(() => {
     if (initialSnapshot.status === "received") return undefined;
@@ -77,15 +119,15 @@ export default function TrackingLive({ id, initialSnapshot, initialRelative }) {
       </div>
       <p className="tracking-updated">Updated {when(snapshot.updatedAt)} · {relativeTime}</p>
       <div className="tracking-grid">
-        <DeliveryMap homeBasePos={snapshot.homeBase} courierPos={snapshot.courier} deliveryPos={snapshot.delivery} />
+        <DeliveryMap homeBasePos={snapshot.homeBase} courierPos={courierPos} deliveryPos={snapshot.delivery} />
         <aside className="tracking-location-details" aria-label="Delivery locations">
           <h3>Delivery details</h3>
           <dl>
             <div><dt>Courier home base</dt><dd>Addis Eats · {snapshot.homeBase.neighborhood}, Addis Ababa<br /><span>{coordinates(snapshot.homeBase, 15)}</span></dd></div>
-            <div><dt>Courier location · approximate</dt><dd>{coordinates(snapshot.courier)}</dd></div>
+            <div><dt>Courier location · approximate</dt><dd>{coordinates(courierPos)}</dd></div>
             <div><dt>Delivery address</dt><dd>{snapshot.delivery.address}<br /><span>Map point: {coordinates(snapshot.delivery)}</span></dd></div>
           </dl>
-          <p className="tracking-map-note">The kitchen team controls the courier route. The full delivery address is shown here.</p>
+          <p className="tracking-map-note">Your route preview starts automatically while this page is open. The full delivery address is shown here.{simulationFinished ? " Route preview complete." : ""}</p>
         </aside>
       </div>
     </section>

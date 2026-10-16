@@ -41,6 +41,7 @@ export async function placeOrder(_previousState, formData) {
     revalidatePath("/cart");
     revalidatePath("/checkout");
     revalidatePath("/Orders");
+    revalidatePath("/", "layout");
     return {
       status: "success",
       message: "Order placed successfully.",

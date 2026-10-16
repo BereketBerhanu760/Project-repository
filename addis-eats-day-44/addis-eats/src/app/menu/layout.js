@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { menuCategories } from "./data";
+import { connection } from "next/server";
+import { getMenuCategories } from "@/lib/menu-store";
 
-export default function MenuLayout({ children }) {
+export default async function MenuLayout({ children }) {
+  await connection();
+  const menuCategories = await getMenuCategories();
   return (
     <main className="main menu-layout">
       <aside className="menu-sidebar" aria-label="Menu categories">

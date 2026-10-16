@@ -1,18 +1,20 @@
 import Link from "next/link";
 import Image from "next/image";
+import { connection } from "next/server";
 import { notFound, permanentRedirect } from "next/navigation";
-import { dishes, getDish } from "../data";
 import { addToCart } from "@/app/cart/actions";
 import { SITE_URL } from "@/lib/site-url";
+import { getMenuDish } from "@/lib/menu-store";
 import FavoriteButton from "../FavoriteButton";
 
 export function generateStaticParams() {
-    return dishes.map((dish) => ({ id: dish.id }));
+  return [];
 }
 
 export async function generateMetadata({ params }) {
+  await connection();
   const { id } = await params;
-  const dish = getDish(id);
+  const dish = await getMenuDish(id);
   if (!dish) notFound();
 
   return {
@@ -43,8 +45,9 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function DishPage({ params }) {
+  await connection();
   const { id } = await params;
-  const dish = getDish(id);
+  const dish = await getMenuDish(id);
   if (!dish) notFound();
   if (id !== dish.id) permanentRedirect(`/menu/${dish.id}`);
   const dishJsonLd = {

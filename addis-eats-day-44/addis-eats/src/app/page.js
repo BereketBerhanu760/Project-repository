@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { dishes } from "@/app/menu/data";
+import { connection } from "next/server";
+import { listMenuDishes } from "@/lib/menu-store";
 
 export const metadata = {
   title: "Ethiopian food, delivered",
@@ -8,7 +9,9 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function Home() {
+export default async function Home() {
+  await connection();
+  const dishes = (await listMenuDishes()).slice(0, 3);
   return (
     <main className="main">
         <section className="hero">

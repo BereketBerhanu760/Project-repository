@@ -1,4 +1,6 @@
-import { getDishPage } from "@/app/menu/data";
+import { getMenuDishPage } from "@/lib/menu-store";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   const params = new URL(request.url).searchParams;
@@ -9,5 +11,5 @@ export async function GET(request) {
   const favoritesOnly = params.get("favorites") === "1";
   const favoriteIds = (params.get("favoriteIds") || "").split(",").filter(Boolean);
 
-  return Response.json(getDishPage({ category, query, page, favoritesOnly, favoriteIds }));
+  return Response.json(await getMenuDishPage({ category, query, page, favoritesOnly, favoriteIds }));
 }
