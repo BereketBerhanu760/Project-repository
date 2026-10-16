@@ -10,6 +10,7 @@ import { etb, when } from "@/lib/format";
 import OrderHistoryExport from "../Orders/OrderHistoryExport";
 import MenuManagement from "./menu/MenuManagement";
 import { listMenuDishes } from "@/lib/menu-store";
+import LocalBrowserOrders from "./LocalBrowserOrders";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -119,6 +120,7 @@ export default async function KitchenPage({ searchParams }) {
             </div>
             <OrderTable orders={orders} searchParams={params} />
           </section>
+          <LocalBrowserOrders serverOrderIds={orders.map((order) => order.id)} />
           <section className="kitchen-management" id="order-management" aria-labelledby="kitchen-heading">
             <div className="section-heading"><h2 id="kitchen-heading">Order management</h2><p>Remove an order</p></div>
             <div className="order-history" aria-label="Kitchen order management">
