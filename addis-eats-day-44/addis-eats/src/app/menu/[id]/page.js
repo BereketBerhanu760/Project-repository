@@ -7,9 +7,10 @@ import { SITE_URL } from "@/lib/site-url";
 import { getMenuDish } from "@/lib/menu-store";
 import FavoriteButton from "../FavoriteButton";
 
-export function generateStaticParams() {
-  return [];
-}
+// Dish details are resolved from the runtime menu store (Redis or local files),
+// so render each slug in the Node.js request runtime instead of prerendering it.
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function generateMetadata({ params }) {
   await connection();
