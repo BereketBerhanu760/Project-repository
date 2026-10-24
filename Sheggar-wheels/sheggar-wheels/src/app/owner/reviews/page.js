@@ -1,3 +1,5 @@
-export default function RoutePage() {
-  return null;
+import DemoPage from '@/components/demo-page';
+
+export default function Page() {
+  return <DemoPage routeKey="/owner/reviews" />;
 }
