@@ -69,9 +69,12 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent" />
 
           <header className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 pt-6 sm:px-8 md:px-12 lg:px-16">
-            <Link href="/" className="text-lg font-bold tracking-[0.16em] text-white">
-              SHEGGAR WHEELS
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/" className="text-lg font-bold tracking-[0.16em] text-white">
+                SHEGGAR WHEELS
+              </Link>
+              <span className="rounded-full border border-white/20 bg-slate-900/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-200">Demo data</span>
+            </div>
             <nav aria-label="Main navigation" className="flex items-center gap-3 sm:gap-6">
               <Link
                 href="/cars"
