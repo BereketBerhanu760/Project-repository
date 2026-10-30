@@ -1,3 +1,48 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
+:root {
+  color-scheme: light;
+  --sw-ink: #020617;
+  --sw-muted: #64748b;
+  --sw-brand: #f97316;
+  --sw-page: #f8fafc;
+  --sw-font: Arial, Helvetica, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--sw-page);
+  color: var(--sw-ink);
+  font-family: var(--sw-font);
+}
+
+.vehicle-leaflet-map {
+  position: relative !important;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 14rem;
+  min-height: 14rem;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+.vehicle-leaflet-map img.leaflet-tile,
+.vehicle-leaflet-map .leaflet-marker-pane img,
+.vehicle-leaflet-map .leaflet-shadow-pane img {
+  max-width: none !important;
+  max-height: none !important;
+}
 

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
   readAnnouncements,
   readBookings,
@@ -11,6 +13,7 @@ import {
   readDisputes,
   readReviews,
   readUsers,
+  hasStoredBookings,
   writeAnnouncements,
   writeBookings,
   writeCars,
@@ -21,18 +24,25 @@ import {
   writeUsers,
 } from "@/lib/storage";
 import { getCurrentSession, requireRole, safeReturnPath, signInAsDemo, signOut as signOutDemo } from "@/lib/auth";
+import demoCars from "@/lib/seed-cars";
+import { formatDate, formatRelativeTime, formatETB } from "@/lib/format";
+import { getMonthlyCarStats } from "@/lib/metrics";
+import { canTransitionBooking, hasActiveBookingOverlap } from "@/lib/booking-workflows";
+
+const CarLocationLeafletMap = dynamic(() => import("@/components/car-location-leaflet-map"), {
+  ssr: false,
+  loading: () => <div className="mt-3 flex h-56 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-500">Loading map…</div>,
+});
 
 const DEMO_OWNER = { id: "demo-owner", name: "Maya Bekele", email: "owner@sheggarwheels.demo", phone: "+251 911 000 201", roles: ["renter", "owner"], status: "Active", createdAt: "2026-01-12T09:00:00.000Z", seeded: true };
 const DEMO_RENTER = { id: "demo-renter", name: "Daniel Tesfaye", email: "renter@sheggarwheels.demo", phone: "+251 911 000 202", roles: ["renter"], status: "Active", createdAt: "2026-02-03T09:00:00.000Z", seeded: true };
 const DEMO_ADMIN = { id: "demo-admin", name: "Sheggar Demo Admin", email: "admin@sheggarwheels.demo", phone: "", roles: ["admin"], status: "Active", createdAt: "2026-01-01T09:00:00.000Z", seeded: true };
-const bookingTransitions = Object.freeze({
-  requested: ["confirmed", "declined", "cancelled"],
-  confirmed: ["in_progress", "cancelled"],
-  in_progress: ["completed", "disputed"],
-  completed: ["reviewed"],
-  disputed: ["resolved"],
-});
-
+const demoPhotoOptions = [
+  ["Audi R8", "/images/car-audi-r8.jpg"], ["BMW 5 Series", "/images/car-bmw-5.jpeg"],
+  ["Honda Civic", "/images/car-honda-civic.jpg"], ["Hyundai Tucson", "/images/car-hyundai-tucson.jpg"],
+  ["Mercedes-Benz S-Class", "/images/car-mercedes-s.jpeg"], ["Porsche 911", "/images/car-porsche-911.jpg"],
+  ["Range Rover Sport", "/images/car-range-rover.jpg"], ["Toyota Land Cruiser", "/images/car-toyota-land-cruiser.jpg"],
+].map(([label, value]) => ({ label, value }));
 function normalizeBookingStatus(value) {
   const status = String(value || "requested").toLowerCase().replaceAll(" ", "_");
   return ({ active: "in_progress", pending: "requested" })[status] || status;
@@ -41,17 +51,6 @@ function normalizeBookingStatus(value) {
 function displayStatus(value) {
   return String(value || "pending").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
-const demoCars = [
-  { id: "car-audi-r8", ownerId: DEMO_OWNER.id, make: "Audi", model: "R8 V10", year: 2023, name: "Audi R8 V10", category: "Exotic", location: "Bole International Airport", neighbourhood: "Bole", latitude: 8.9806, longitude: 38.7578, price: 285, pricePerDay: 285, seats: 2, transmission: "Automatic", status: "Approved", photos: ["https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1000&q=80"], description: "A striking V10 sports car for a memorable city drive.", unavailableDates: [], accent: "from-red-500/30", createdAt: "2026-03-01T10:00:00.000Z" },
-  { id: "car-range-rover", ownerId: DEMO_OWNER.id, make: "Land Rover", model: "Range Rover Sport", year: 2024, name: "Range Rover Sport", category: "Premium SUV", location: "Addis Ababa", neighbourhood: "Kazanchis", latitude: 9.0102, longitude: 38.7613, price: 190, pricePerDay: 190, seats: 5, transmission: "Automatic", status: "Approved", photos: ["https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=1000&q=80"], description: "Comfortable premium SUV with room for the whole group.", unavailableDates: [], accent: "from-amber-500/30", createdAt: "2026-03-04T10:00:00.000Z" },
-  { id: "car-mercedes-s", ownerId: DEMO_OWNER.id, make: "Mercedes-Benz", model: "S-Class", year: 2023, name: "Mercedes-Benz S-Class", category: "Luxury", location: "Bole International Airport", neighbourhood: "Bole", latitude: 8.9806, longitude: 38.7578, price: 220, pricePerDay: 220, seats: 5, transmission: "Automatic", status: "Approved", photos: ["https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=1000&q=80"], description: "Quiet, refined executive travel through the capital.", unavailableDates: [], accent: "from-blue-500/30", createdAt: "2026-03-06T10:00:00.000Z" },
-  { id: "car-bmw-5", ownerId: DEMO_OWNER.id, make: "BMW", model: "5 Series", year: 2022, name: "BMW 5 Series", category: "Luxury", location: "Bole, Addis Ababa", neighbourhood: "Bole", latitude: 8.995, longitude: 38.785, price: 165, pricePerDay: 165, seats: 5, transmission: "Automatic", status: "Approved", photos: ["https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1000&q=80"], description: "A balanced luxury sedan for business or a weekend away.", unavailableDates: [], accent: "from-slate-500/30", createdAt: "2026-03-09T10:00:00.000Z" },
-  { id: "car-toyota-land-cruiser", ownerId: DEMO_OWNER.id, make: "Toyota", model: "Land Cruiser", year: 2021, name: "Toyota Land Cruiser", category: "Premium SUV", location: "Old Airport, Addis Ababa", neighbourhood: "Old Airport", latitude: 8.99, longitude: 38.77, price: 175, pricePerDay: 175, seats: 7, transmission: "Automatic", status: "Approved", photos: ["https://images.unsplash.com/photo-1519245659620-e859806a8d3b?auto=format&fit=crop&w=1000&q=80"], description: "Spacious all-terrain comfort for longer journeys.", unavailableDates: [], accent: "from-emerald-500/30", createdAt: "2026-03-12T10:00:00.000Z" },
-  { id: "car-porsche-911", ownerId: DEMO_OWNER.id, make: "Porsche", model: "911 Carrera", year: 2023, name: "Porsche 911 Carrera", category: "Exotic", location: "Bole International Airport", neighbourhood: "Bole", latitude: 8.9806, longitude: 38.7578, price: 310, pricePerDay: 310, seats: 2, transmission: "Manual", status: "Approved", photos: ["https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1000&q=80"], description: "An engaging sports coupe for a special occasion.", unavailableDates: [], accent: "from-orange-500/30", createdAt: "2026-03-15T10:00:00.000Z" },
-  { id: "car-hyundai-tucson", ownerId: DEMO_OWNER.id, make: "Hyundai", model: "Tucson", year: 2022, name: "Hyundai Tucson", category: "SUV", location: "Piazza, Addis Ababa", neighbourhood: "Piazza", latitude: 9.035, longitude: 38.75, price: 95, pricePerDay: 95, seats: 5, transmission: "Automatic", status: "Pending review", photos: ["https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1000&q=80"], description: "A practical compact SUV awaiting listing approval.", unavailableDates: [], accent: "from-cyan-500/30", createdAt: "2026-03-18T10:00:00.000Z" },
-  { id: "car-honda-civic", ownerId: DEMO_OWNER.id, make: "Honda", model: "Civic", year: 2021, name: "Honda Civic", category: "Sedan", location: "Megenagna, Addis Ababa", neighbourhood: "Megenagna", latitude: 9.02, longitude: 38.81, price: 72, pricePerDay: 72, seats: 5, transmission: "Manual", status: "Inactive", photos: ["https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1000&q=80"], description: "An efficient city sedan currently unavailable for booking.", unavailableDates: [], accent: "from-violet-500/30", createdAt: "2026-03-21T10:00:00.000Z" },
-];
-
 const demoBookings = [
   { id: "SW-24018", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-28", endDate: "2026-10-30", days: 2, pricePerDay: 285, subtotal: 570, serviceFee: 35, total: 605, paymentStatus: "Mock unpaid", status: "requested", createdAt: "2026-10-20T10:00:00.000Z", updatedAt: "2026-10-20T10:00:00.000Z" },
   { id: "SW-24017", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 190, subtotal: 380, serviceFee: 35, total: 415, paymentStatus: "Mock held", status: "confirmed", createdAt: "2026-10-18T10:00:00.000Z", updatedAt: "2026-10-19T10:00:00.000Z" },
@@ -77,7 +76,7 @@ const navGroups = {
   owner: [
     ["Overview", "/owner"],
     ["My cars", "/owner/cars"],
-    ["Bookings", "/owner/cars"],
+    ["Bookings", "/owner/bookings"],
     ["Earnings", "/owner/earnings"],
     ["Reviews", "/owner/reviews"],
     ["Disputes", "/owner/disputes"],
@@ -86,7 +85,6 @@ const navGroups = {
     ["Overview", "/admin"],
     ["Listings", "/admin/listings"],
     ["Users", "/admin/users"],
-    ["Bookings", "/admin/bookings"],
     ["Disputes", "/admin/disputes"],
     ["Reports", "/admin/reports"],
     ["Announcements", "/admin/announcements"],
@@ -106,6 +104,8 @@ const routeInfo = {
   "/checkout": ["Review your booking", "Confirm your trip details before continuing."],
   "/owner": ["Owner overview", "A quick view of your fleet and rental performance."],
   "/owner/cars": ["Your fleet", "Manage the vehicles you share with the community."],
+  "/owner/bookings": ["Your bookings", "Review and manage reservations across your vehicles."],
+  "/owner/bookings/[id]": ["Reservation details", "Review this renter’s locations and booking information."],
   "/owner/cars/new": ["Add a vehicle", "Create a listing for your next renter."],
   "/owner/cars/[id]/edit": ["Edit vehicle", "Keep your listing details up to date."],
   "/owner/cars/[id]/availability": ["Manage availability", "Choose when this vehicle is ready to rent."],
@@ -117,7 +117,6 @@ const routeInfo = {
   "/admin/listings": ["Listing moderation", "Review vehicles waiting for approval."],
   "/admin/users": ["User directory", "Manage renter and owner demo accounts."],
   "/admin/users/[id]": ["User account", "Review account status and activity."],
-  "/admin/bookings": ["All bookings", "Search reservations across the marketplace."],
   "/admin/disputes": ["Dispute center", "Track and resolve rental issues."],
   "/admin/disputes/[id]": ["Dispute review", "Record a clear resolution for this case."],
   "/admin/reports": ["Platform reports", "Review marketplace performance at a glance."],
@@ -147,6 +146,7 @@ function normalizeRoles(user) {
 
 function safeInternalDestination(value, roles = []) {
   const fallback = roles.includes("admin") ? "/admin" : roles.includes("owner") ? "/owner" : "/dashboard";
+  if (!value) return fallback;
   if (typeof window === "undefined") return fallback;
   try {
     const safePath = safeReturnPath(value);
@@ -179,6 +179,15 @@ function ButtonLink({ href, children, secondary = false }) {
       {children}
     </Link>
   );
+}
+
+function ActionButton({ children, tone = "neutral", className, ...props }) {
+  const tones = {
+    neutral: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+    positive: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    danger: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+  };
+  return <button {...props} className={cn("inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500", tones[tone], className)}>{children}</button>;
 }
 
 function Metric({ label, value, note, icon = "↗" }) {
@@ -215,8 +224,8 @@ function DataTable({ columns, rows, empty = "Nothing here yet." }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[620px] text-left text-sm">
-        <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">{columns.map((column) => <th className="px-3 py-3 font-semibold" key={column.key}>{column.label}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr className="border-b border-slate-50 last:border-0" key={row.id || row.email || index}>{columns.map((column) => <td className="px-3 py-4 text-slate-700" key={column.key}>{column.render ? column.render(row[column.key], row) : row[column.key] || "—"}</td>)}</tr>)}</tbody>
+        <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">{columns.map((column, index) => <th className="px-3 py-3 font-semibold" key={`${column.key}-${index}`}>{column.label}</th>)}</tr></thead>
+        <tbody>{rows.map((row, index) => <tr className="border-b border-slate-50 last:border-0" key={row.id || row.email || index}>{columns.map((column, columnIndex) => <td className="px-3 py-4 text-slate-700" key={`${column.key}-${columnIndex}`}>{column.render ? column.render(row[column.key], row) : row[column.key] || "—"}</td>)}</tr>)}</tbody>
       </table>
     </div>
   );
@@ -246,17 +255,18 @@ function FormCard({ title, description, fields, onSubmit, submitLabel = "Save ch
   );
 }
 
-function CarCard({ car }) {
+function CarCard({ car, reviews = [] }) {
+  const carReviews = reviews.filter((review) => review.carId === car.id);
+  const rating = carReviews.length ? (carReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / carReviews.length).toFixed(1) : null;
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className={cn("relative flex h-44 items-end justify-between overflow-hidden bg-gradient-to-br to-slate-200 p-5", car.accent || "from-orange-400/30")}>
-        {car.photos?.[0] && <img src={car.photos[0]} alt={car.name} className="absolute inset-0 h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
-        <div className="absolute -right-8 -bottom-10 h-40 w-64 -rotate-6 rounded-[50%] border-[18px] border-slate-900/80 bg-slate-700 shadow-xl"><span className="absolute -left-5 bottom-1 h-10 w-10 rounded-full border-8 border-slate-950 bg-slate-300"/><span className="absolute right-2 bottom-1 h-10 w-10 rounded-full border-8 border-slate-950 bg-slate-300"/></div>
+        {car.photos?.[0] && <Image src={car.photos[0]} alt={car.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
         <span className="relative z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category || "Premium"}</span>
-        <span className="relative z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600">★ 4.9</span>
+        <span className="relative z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600">{rating ? `★ ${rating}` : "New listing"}</span>
       </div>
       <div className="p-5">
-        <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-950">{car.name || "Premium vehicle"}</h3><p className="mt-1 text-xs text-slate-500">{car.location || "Addis Ababa"}</p></div><p className="shrink-0 text-right"><strong className="text-lg text-slate-950">${car.price || 150}</strong><span className="block text-xs text-slate-500">per day</span></p></div>
+        <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-950">{car.name || "Premium vehicle"}</h3><p className="mt-1 text-xs text-slate-500">{car.location || "Addis Ababa"}</p></div><p className="shrink-0 text-right"><strong className="text-lg text-slate-950">{formatETB(car.pricePerDay ?? car.price ?? 150)}</strong><span className="block text-xs text-slate-500">per day</span></p></div>
         <div className="mt-4 flex gap-4 border-t border-slate-100 pt-4 text-xs text-slate-500"><span>{car.seats || 5} seats</span><span>{car.transmission || "Automatic"}</span><span>{car.fuel || "Premium"}</span></div>
         <ButtonLink href={`/cars/${car.id || "car-audi-r8"}`}>View vehicle</ButtonLink>
       </div>
@@ -269,26 +279,41 @@ export default function DemoPage({ routeKey, recordId }) {
   const [records, setRecords] = useState(fallbackRows);
   const [session, setSession] = useState({ userId: null, metadata: {} });
   const [authReady, setAuthReady] = useState(false);
-  const [authRedirecting, setAuthRedirecting] = useState(false);
-  const [accessError, setAccessError] = useState("");
   const [message, setMessage] = useState("");
+  const [storageRecovery, setStorageRecovery] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Recommended");
+  const [cataloguePage, setCataloguePage] = useState(1);
+  const [catalogueFilters, setCatalogueFilters] = useState({ minPrice: "", maxPrice: "", transmission: "All", minSeats: "", neighbourhood: "All" });
+  const [pickupDate, setPickupDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const catalogueQueryReady = useRef(false);
+  const [commissionRate, setCommissionRate] = useState(10);
   const [draft, setDraft] = useState({ selectedDates: null, summary: null });
+  const [locationTarget, setLocationTarget] = useState("pickupLocation");
   const [returnTo, setReturnTo] = useState("");
 
   useEffect(() => {
+    const hadStoredBookings = hasStoredBookings();
     const loaded = {};
-    for (const [name, [reader]] of Object.entries(storeMethods)) loaded[name] = reader().data;
+    const recoveryMessages = [];
+    for (const [name, [reader]] of Object.entries(storeMethods)) {
+      const result = reader();
+      loaded[name] = result.data;
+      if (result.recovered && result.message) recoveryMessages.push(result.message);
+    }
     const seedUsers = [DEMO_OWNER, DEMO_RENTER, DEMO_ADMIN];
     loaded.users = seedUsers.map((seed) => loaded.users.find((user) => user.id === seed.id || user.email?.toLowerCase() === seed.email) || seed)
       .concat(loaded.users.filter((user) => !seedUsers.some((seed) => user.id === seed.id || user.email?.toLowerCase() === seed.email)));
     for (const [name, seeds] of Object.entries({ cars: demoCars, bookings: demoBookings, reviews: demoReviews, disputes: demoDisputes, announcements: demoAnnouncements })) {
       const existing = new Map((loaded[name] || []).map((record) => [record.id, record]));
-      for (const seed of seeds) if (!existing.has(seed.id)) existing.set(seed.id, seed);
+      const shouldSeed = !hadStoredBookings || !["bookings", "reviews", "disputes"].includes(name);
+      for (const seed of seeds) if (!existing.has(seed.id) && shouldSeed) existing.set(seed.id, seed);
       loaded[name] = [...existing.values()];
     }
+    const seededCarPhotos = new Map(demoCars.map((car) => [car.id, car.photos]));
+    loaded.cars = loaded.cars.map((car) => seededCarPhotos.has(car.id) ? { ...car, photos: seededCarPhotos.get(car.id) } : car);
     loaded.cars = loaded.cars.map((car) => ({ ...car, pricePerDay: Number(car.pricePerDay ?? car.price ?? 0), photos: Array.isArray(car.photos) ? car.photos : [], unavailableDates: Array.isArray(car.unavailableDates) ? car.unavailableDates : [], createdAt: car.createdAt || isoNow() }));
     loaded.bookings = loaded.bookings.map((booking) => {
       const car = loaded.cars.find((item) => item.id === booking.carId);
@@ -304,24 +329,60 @@ export default function DemoPage({ routeKey, recordId }) {
     const disputedBookingIds = new Set(loaded.disputes.filter((dispute) => dispute.status === "open").map((dispute) => dispute.bookingId));
     loaded.bookings = loaded.bookings.map((booking) => disputedBookingIds.has(booking.id) && booking.status === "in_progress" ? { ...booking, status: "disputed" } : booking);
     for (const name of Object.keys(storeMethods)) storeMethods[name][1](loaded[name]);
-    setRecords((current) => ({ ...current, ...loaded }));
     const savedSession = getCurrentSession().session;
-    setSession(savedSession);
-    setDraft(readCheckoutDraft().data);
-    setAuthReady(true);
+    startTransition(() => {
+      setRecords((current) => ({ ...current, ...loaded }));
+      setSession(savedSession);
+      const checkoutDraft = readCheckoutDraft();
+      setDraft(checkoutDraft.data);
+      if (checkoutDraft.recovered && checkoutDraft.message) recoveryMessages.push(checkoutDraft.message);
+      if (recoveryMessages.length) setStorageRecovery(recoveryMessages[0]);
+      setAuthReady(true);
+    });
   }, []);
 
   useEffect(() => {
     if (routeKey === "/signin" || routeKey === "/signup") {
-      setReturnTo(new URLSearchParams(window.location.search).get("next") || "");
+      startTransition(() => setReturnTo(new URLSearchParams(window.location.search).get("next") || ""));
     }
   }, [routeKey]);
 
+  useEffect(() => {
+    if (routeKey !== "/cars") {
+      catalogueQueryReady.current = false;
+      return;
+    }
+    catalogueQueryReady.current = false;
+    const params = new URLSearchParams(window.location.search);
+    const timer = setTimeout(() => {
+      setSearch(params.get("q") || "");
+      setFilter(params.get("category") || "All");
+      setSort(params.get("sort") || "Recommended");
+      setCatalogueFilters({
+        minPrice: params.get("minPrice") || "",
+        maxPrice: params.get("maxPrice") || "",
+        transmission: params.get("transmission") || "All",
+        minSeats: params.get("minSeats") || "",
+        neighbourhood: params.get("neighbourhood") || "All",
+      });
+      setPickupDate(params.get("pickup") || "");
+      setReturnDate(params.get("return") || "");
+      setCataloguePage(Math.max(1, Number(params.get("page")) || 1));
+      catalogueQueryReady.current = true;
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [routeKey]);
+
+
+
   const [title, description] = routeInfo[routeKey] || ["Sheggar Wheels", "Manage your rental experience."];
   const role = routeKey.startsWith("/admin") ? "admin" : routeKey.startsWith("/owner") ? "owner" : "renter";
-  const nav = navGroups[role];
+  const isAdminCarsPage = routeKey === "/cars" && normalizeRoles(session.metadata).includes("admin");
+  const nav = isAdminCarsPage ? [["Find a car", "/cars"]] : navGroups[role];
+  const workspaceLabel = isAdminCarsPage ? "admin" : role;
   const isPublicRoute = ["/", "/cars", "/cars/[id]", "/signin", "/signup"].includes(routeKey);
   const requiredRole = routeKey.startsWith("/admin") ? "admin" : routeKey.startsWith("/owner") ? "owner" : "renter";
+  const authRedirecting = authReady && !isPublicRoute && !session.userId;
 
   useEffect(() => {
     if (!authReady) return;
@@ -330,44 +391,64 @@ export default function DemoPage({ routeKey, recordId }) {
     if (isPublicRoute) return;
     if (!session.userId || !currentAuth.user) {
       const next = `${window.location.pathname}${window.location.search}`;
-      setAuthRedirecting(true);
       router.replace(`/signin?next=${encodeURIComponent(next)}`);
-      return;
     }
-    const roles = normalizeRoles(currentAuth.user);
-    if (["/bookings/[id]", "/bookings/[id]/track", "/bookings/[id]/review"].includes(routeKey)) {
-      const booking = (records.bookings || []).find((item) => item.id === recordId && item.renterId === session.userId);
-      const alreadyReviewed = records.reviews?.some((review) => review.bookingId === recordId);
-      if (!booking || (routeKey.endsWith("/review") && (normalizeBookingStatus(booking.status) !== "completed" || alreadyReviewed))) {
-        setAccessError(routeKey.endsWith("/review") ? alreadyReviewed ? "You have already reviewed this booking." : "A completed booking on your account is required to leave a review." : "This booking is not available in your renter account.");
-        return;
-      }
-    }
-    if (routeKey.startsWith("/owner/cars/[id]/") && !records.cars?.some((car) => car.id === recordId && car.ownerId === session.userId)) {
-      setAccessError("This vehicle is not attached to your owner account.");
-      return;
-    }
-    if (!roles.includes(requiredRole)) {
-      setAccessError(requiredRole === "owner"
-        ? "This account does not have owner capabilities yet. Enable owner mode to manage a fleet."
-        : requiredRole === "admin"
-          ? "Admin pages are available only through the seeded demo admin account."
-          : "Sign in with a renter account to view this page.");
-      return;
-    }
-    setAccessError("");
-  }, [authReady, isPublicRoute, recordId, records.bookings, records.cars, records.reviews, records.users, requiredRole, routeKey, router, session]);
+  }, [authReady, isPublicRoute, router, session.userId]);
   const allCars = records.cars || demoCars;
   const allBookings = records.bookings || demoBookings;
   const ownedCars = (records.cars || []).filter((car) => car.ownerId === session.userId);
   const ownedCarIds = new Set(ownedCars.map((car) => car.id));
   const renterBookings = allBookings.filter((booking) => booking.renterId === session.userId);
   const ownerBookings = allBookings.filter((booking) => ownedCarIds.has(booking.carId));
+  let accessError = "";
+  const currentUser = records.users?.find((user) => user.id === session.userId);
+  if (authReady && !isPublicRoute && session.userId && currentUser && String(currentUser.status).toLowerCase() !== "suspended") {
+    if (["/bookings/[id]", "/bookings/[id]/track", "/bookings/[id]/review"].includes(routeKey)) {
+      const booking = allBookings.find((item) => item.id === recordId && item.renterId === session.userId);
+      const alreadyReviewed = records.reviews?.some((review) => review.bookingId === recordId);
+      if (!booking || (routeKey.endsWith("/review") && (normalizeBookingStatus(booking.status) !== "completed" || alreadyReviewed))) {
+        accessError = routeKey.endsWith("/review") ? alreadyReviewed ? "You have already reviewed this booking." : "A completed booking on your account is required to leave a review." : "This booking is not available in your renter account.";
+      }
+    }
+    if (!accessError && routeKey.startsWith("/owner/cars/[id]/") && !ownedCars.some((car) => car.id === recordId)) {
+      accessError = "This vehicle is not attached to your owner account.";
+    }
+    if (!accessError && !normalizeRoles(currentUser).includes(requiredRole)) {
+      accessError = requiredRole === "owner"
+        ? "This account does not have owner capabilities yet. Enable owner mode to manage a fleet."
+        : requiredRole === "admin"
+          ? "Admin pages are available only through the seeded demo admin account."
+          : "Sign in with a renter account to view this page.";
+    }
+  }
   const visibleCars = useMemo(() => allCars.filter((car) => {
-    const matchesSearch = `${car.name} ${car.location} ${car.category}`.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "All" || car.category?.toLowerCase().includes(filter.toLowerCase());
-    return matchesSearch && matchesFilter && ["approved", "active"].includes(String(car.status || "").toLowerCase());
-  }).sort((a, b) => sort === "Price: low to high" ? Number(a.price) - Number(b.price) : sort === "Price: high to low" ? Number(b.price) - Number(a.price) : 0), [allCars, search, filter, sort]);
+    const matchesSearch = `${car.make || ""} ${car.model || ""} ${car.name || ""} ${car.description || ""} ${car.location || ""} ${car.neighbourhood || ""} ${car.category || ""}`.toLowerCase().includes(search.trim().toLowerCase());
+    const matchesCategory = filter === "All" || car.category?.toLowerCase().includes(filter.toLowerCase());
+    const price = Number(car.pricePerDay ?? car.price ?? 0);
+    const datesAvailable = !pickupDate || !returnDate || !allBookings.some((booking) => booking.carId === car.id && !["cancelled", "declined", "completed", "reviewed", "resolved"].includes(booking.status) && pickupDate < booking.endDate && returnDate > booking.startDate);
+    const datesRespectOwnerAvailability = !pickupDate || !returnDate || (!car.unavailableDates?.some((date) => date >= pickupDate && date < returnDate) && (!car.availability?.availableFrom || pickupDate >= car.availability.availableFrom) && (!car.availability?.availableUntil || returnDate <= car.availability.availableUntil));
+    return matchesSearch && matchesCategory && price >= (Number(catalogueFilters.minPrice) || 0) && (!catalogueFilters.maxPrice || price <= Number(catalogueFilters.maxPrice)) && (catalogueFilters.transmission === "All" || car.transmission === catalogueFilters.transmission) && Number(car.seats || 0) >= (Number(catalogueFilters.minSeats) || 0) && (catalogueFilters.neighbourhood === "All" || car.neighbourhood === catalogueFilters.neighbourhood) && datesAvailable && datesRespectOwnerAvailability && ["approved", "active"].includes(String(car.status || "").toLowerCase());
+  }).sort((a, b) => sort === "Price: low to high" ? Number(a.pricePerDay ?? a.price) - Number(b.pricePerDay ?? b.price) : sort === "Price: high to low" ? Number(b.pricePerDay ?? b.price) - Number(a.pricePerDay ?? a.price) : sort === "Newest" ? String(b.createdAt || "").localeCompare(String(a.createdAt || "")) : 0), [allCars, allBookings, search, filter, sort, catalogueFilters, pickupDate, returnDate]);
+  const cataloguePageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(visibleCars.length / cataloguePageSize));
+  const currentCataloguePage = Math.min(cataloguePage, pageCount);
+  const pageCars = visibleCars.slice((currentCataloguePage - 1) * cataloguePageSize, currentCataloguePage * cataloguePageSize);
+
+  useEffect(() => {
+    if (routeKey !== "/cars" || !catalogueQueryReady.current) return;
+    const params = new URLSearchParams();
+    const entries = [
+      ["q", search.trim()], ["category", filter === "All" ? "" : filter],
+      ["sort", sort === "Recommended" ? "" : sort], ["minPrice", catalogueFilters.minPrice],
+      ["maxPrice", catalogueFilters.maxPrice], ["transmission", catalogueFilters.transmission === "All" ? "" : catalogueFilters.transmission],
+      ["minSeats", catalogueFilters.minSeats], ["neighbourhood", catalogueFilters.neighbourhood === "All" ? "" : catalogueFilters.neighbourhood],
+      ["pickup", pickupDate], ["return", returnDate], ["page", currentCataloguePage > 1 ? String(currentCataloguePage) : ""],
+    ];
+    entries.forEach(([key, value]) => { if (value) params.set(key, value); });
+    const query = params.toString();
+    const nextUrl = window.location.pathname + (query ? "?" + query : "");
+    if (nextUrl !== window.location.pathname + window.location.search) window.history.replaceState(null, "", nextUrl);
+  }, [routeKey, search, filter, sort, catalogueFilters, pickupDate, returnDate, currentCataloguePage]);
 
   function deny(message) { setMessage(message); return false; }
 
@@ -452,7 +533,7 @@ export default function DemoPage({ routeKey, recordId }) {
       const ownsAsCarOwner = roleToRequire === "owner" && (target.ownerId === auth.session.userId || car?.ownerId === auth.session.userId);
       if (!ownsAsRenter && !ownsAsCarOwner && !isAdmin) return deny("Not yours.");
       if (updates.status) {
-        if (!bookingTransitions[target.status]?.includes(updates.status)) return deny(`The booking cannot move from ${displayStatus(target.status)} to ${displayStatus(updates.status)}.`);
+        if (!canTransitionBooking(target.status, updates.status)) return deny(`The booking cannot move from ${displayStatus(target.status)} to ${displayStatus(updates.status)}.`);
         const ownerActions = ["confirmed", "declined", "completed"].includes(updates.status);
         const renterActions = ["cancelled", "in_progress", "reviewed"].includes(updates.status);
         if (updates.status === "disputed" && !["renter", "owner", "admin"].includes(roleToRequire)) return deny("This role cannot perform that booking action.");
@@ -480,7 +561,7 @@ export default function DemoPage({ routeKey, recordId }) {
 
   function transitionBooking(id, nextStatus, sourceRows = []) {
     const booking = allBookings.find((item) => item.id === id);
-    if (!booking || !bookingTransitions[booking.status]?.includes(nextStatus)) {
+    if (!booking || !canTransitionBooking(booking.status, nextStatus)) {
       setMessage(`The booking cannot move from ${displayStatus(booking?.status || "unknown")} to ${displayStatus(nextStatus)}.`);
       return false;
     }
@@ -494,7 +575,7 @@ export default function DemoPage({ routeKey, recordId }) {
     const booking = allBookings.find((item) => item.id === id);
     if (!booking) return;
     if (booking.status !== "requested") return transitionBooking(id, "confirmed", sourceRows);
-    const conflict = allBookings.some((item) => item.id !== id && item.carId === booking.carId && !["cancelled", "declined", "completed", "reviewed", "resolved"].includes(item.status) && booking.startDate < item.endDate && booking.endDate > item.startDate);
+    const conflict = hasActiveBookingOverlap(allBookings, booking);
     if (conflict) {
       setMessage("These dates overlap another active booking for this vehicle.");
       return;
@@ -514,7 +595,7 @@ export default function DemoPage({ routeKey, recordId }) {
     return (formData) => handler(Object.fromEntries(formData.entries()));
   }
 
-  const userRows = records.users?.length ? records.users : [{ id: "demo-owner", name: "Maya Bekele", email: "maya@example.com", role: "Owner", status: "Active" }, { id: "demo-renter", name: "Daniel Tesfaye", email: "daniel@example.com", role: "Renter", status: "Active" }];
+  const userRows = records.users || [];
   const accountSuspended = authReady && String(userRows.find((user) => user.id === session.userId)?.status).toLowerCase() === "suspended";
   const reviewRows = records.reviews || [];
   const ownerReviewRows = reviewRows.filter((review) => ownedCarIds.has(review.carId) || review.ownerId === session.userId);
@@ -525,16 +606,19 @@ export default function DemoPage({ routeKey, recordId }) {
   function renderContent() {
     if (routeKey === "/cars") {
       return <>
-        <div className="mb-5 rounded-2xl bg-slate-950 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr_auto]"><label className="text-xs font-medium text-slate-300">Where<input value={search} onChange={(event) => setSearch(event.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" placeholder="City, airport, or car"/></label><Field label="Pick-up" name="pickup" type="date"/><Field label="Return" name="return" type="date"/><button className="self-end rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-400" onClick={() => setMessage("Showing cars available for your search.")}>Search cars</button></div></div>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-500">{visibleCars.length} exceptional vehicles</p><div className="flex gap-2"><select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={filter} onChange={(event) => setFilter(event.target.value)}><option>All</option><option>Exotic</option><option>Luxury</option><option>Premium SUV</option></select><select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={sort} onChange={(event) => setSort(event.target.value)}><option>Recommended</option><option>Price: low to high</option><option>Price: high to low</option></select></div></div>
+        <div className="mb-5 rounded-2xl bg-slate-950 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><label className="text-xs font-medium text-slate-300">Make, model, or location<input value={search} onChange={(event) => {setSearch(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" placeholder="Try Audi, Bole, or SUV"/></label><label className="text-xs font-medium text-slate-300">Pick-up<input value={pickupDate} onChange={(event)=>{setPickupDate(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" type="date"/></label><label className="text-xs font-medium text-slate-300">Return<input value={returnDate} onChange={(event)=>{setReturnDate(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" type="date" min={pickupDate || undefined}/></label><label className="text-xs font-medium text-slate-300">Transmission<select value={catalogueFilters.transmission} onChange={(event)=>{setCatalogueFilters((current)=>({...current,transmission:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"><option>All</option><option>Automatic</option><option>Manual</option></select></label><label className="text-xs font-medium text-slate-300">Neighbourhood<select value={catalogueFilters.neighbourhood} onChange={(event)=>{setCatalogueFilters((current)=>({...current,neighbourhood:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"><option>All</option>{[...new Set(allCars.map((car)=>car.neighbourhood).filter(Boolean))].sort().map((place)=><option key={place}>{place}</option>)}</select></label><label className="text-xs font-medium text-slate-300">Minimum price<input type="number" min="0" value={catalogueFilters.minPrice} onChange={(event)=>{setCatalogueFilters((current)=>({...current,minPrice:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label><label className="text-xs font-medium text-slate-300">Maximum price<input type="number" min="0" value={catalogueFilters.maxPrice} onChange={(event)=>{setCatalogueFilters((current)=>({...current,maxPrice:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label><label className="text-xs font-medium text-slate-300">Minimum seats<input type="number" min="1" value={catalogueFilters.minSeats} onChange={(event)=>{setCatalogueFilters((current)=>({...current,minSeats:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label></div></div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-500">{visibleCars.length} matching vehicles</p><div className="flex gap-2"><select aria-label="Filter by category" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={filter} onChange={(event) => {setFilter(event.target.value);setCataloguePage(1);}}><option>All</option><option>Exotic</option><option>Luxury</option><option>Premium SUV</option><option>SUV</option><option>Sedan</option></select><select aria-label="Sort vehicles" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={sort} onChange={(event) => {setSort(event.target.value);setCataloguePage(1);}}><option>Recommended</option><option>Price: low to high</option><option>Price: high to low</option><option>Newest</option></select></div></div>
         {message && <p className="mb-4 text-sm text-emerald-700">{message}</p>}
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visibleCars.map((car) => <CarCard car={car} key={car.id}/>)}</div>
+        {pageCars.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{pageCars.map((car) => <CarCard car={car} reviews={reviewRows} key={car.id}/>)}</div> : <EmptyState title="No cars match your search" text="Try another location, date range, or set of filters."/>}
+        {visibleCars.length > cataloguePageSize && <nav aria-label="Car catalogue pages" className="mt-6 flex items-center justify-center gap-2"><button disabled={currentCataloguePage===1} onClick={()=>setCataloguePage((page)=>Math.max(1,page-1))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-40">Previous</button>{Array.from({length:pageCount},(_,index)=>index+1).map((page)=><button key={page} aria-current={currentCataloguePage===page?"page":undefined} onClick={()=>setCataloguePage(page)} className={cn("rounded-lg border px-3 py-2 text-sm",currentCataloguePage===page?"border-orange-500 bg-orange-50 text-orange-700":"border-slate-200")}>{page}</button>)}<button disabled={currentCataloguePage===pageCount} onClick={()=>setCataloguePage((page)=>Math.min(pageCount,page+1))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-40">Next</button></nav>}
       </>;
     }
 
     if (routeKey === "/cars/[id]") {
-      const car = allCars.find((item) => item.id === recordId && item.status === "Approved") || demoCars[0];
-      return <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]"><div className="space-y-5"><div className="relative flex h-72 items-end overflow-hidden rounded-3xl bg-gradient-to-br from-orange-200 via-slate-300 to-slate-700 p-7">{car.photos?.[0]&&<img src={car.photos[0]} alt={car.name} className="absolute inset-0 h-full w-full object-cover" onError={(event)=>{event.currentTarget.style.display="none";}}/>}<span className="relative rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category}</span></div><Panel title="About this vehicle"><p className="leading-7 text-slate-600">{car.description || `Enjoy a carefully maintained ${car.name} with a smooth drive, flexible pickup, and attentive local support.`}</p><div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm"><div className="rounded-xl bg-slate-50 p-3"><strong>{car.seats || 2}</strong><span className="mt-1 block text-slate-500">Seats</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{car.transmission || "Auto"}</strong><span className="mt-1 block text-slate-500">Transmission</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>4.9 ★</strong><span className="mt-1 block text-slate-500">Rating</span></div></div></Panel><Panel title="Pickup location"><p className="text-sm text-slate-600">{car.location}</p><p className="mt-2 text-xs text-slate-400">Exact pickup instructions are shared after the booking is confirmed.</p></Panel></div><Panel title="Reserve this car"><div className="mb-4"><strong className="text-3xl">${car.price}</strong><span className="text-slate-500"> / day</span></div><form action={(formData) => { const values = Object.fromEntries(formData.entries()); const checkout = { selectedDates: { startDate: values.startDate, endDate: values.endDate }, summary: { carId: car.id, ownerId: car.ownerId, car: car.name, price: car.price } }; const result = writeCheckoutDraft(checkout); if (!result.ok) { setMessage(result.message); return; } setDraft(checkout); router.push("/checkout"); }} className="space-y-4"><Field label="Pick-up date" name="startDate" type="date" required/><Field label="Return date" name="endDate" type="date" required/><p className="text-xs leading-5 text-slate-500">No payment details are collected in this demo.</p>{message && <p role="status" className="text-sm text-emerald-700">{message}</p>}<button className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Continue to checkout</button></form></Panel></div>;
+      const car = allCars.find((item) => item.id === recordId && ["approved","active"].includes(String(item.status || "").toLowerCase())) || demoCars[0];
+      const carReviews = reviewRows.filter((review) => review.carId === car.id);
+      const carRating = carReviews.length ? (carReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / carReviews.length).toFixed(1) : null;
+      return <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]"><div className="space-y-5"><div className="relative flex h-72 items-end overflow-hidden rounded-3xl bg-gradient-to-br from-orange-200 via-slate-300 to-slate-700 p-7">{car.photos?.[0]&&<Image src={car.photos[0]} alt={car.name} fill sizes="(max-width: 1280px) 100vw, 60vw" className="object-cover" onError={(event)=>{event.currentTarget.style.display="none";}}/>}<span className="relative rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category}</span></div><Panel title="About this vehicle"><p className="leading-7 text-slate-600">{car.description || `Enjoy a carefully maintained ${car.name} with a smooth drive, flexible pickup, and attentive local support.`}</p><div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm"><div className="rounded-xl bg-slate-50 p-3"><strong>{car.seats || 2}</strong><span className="mt-1 block text-slate-500">Seats</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{car.transmission || "Auto"}</strong><span className="mt-1 block text-slate-500">Transmission</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{carRating ? carRating + " ★" : "—"}</strong><span className="mt-1 block text-slate-500">{carRating ? "Rating" : "No reviews yet"}</span></div></div></Panel><CarLocationMap location={car.location} latitude={car.latitude} longitude={car.longitude}/></div><Panel title="Reserve this car"><div className="mb-4"><strong className="text-3xl">{formatETB(car.pricePerDay ?? car.price)}</strong><span className="text-slate-500"> / day</span></div><form action={(formData) => { const values = Object.fromEntries(formData.entries()); const checkout = { selectedDates: { startDate: values.startDate, endDate: values.endDate }, summary: { carId: car.id, ownerId: car.ownerId, car: car.name, price: car.price } }; const result = writeCheckoutDraft(checkout); if (!result.ok) { setMessage(result.message); return; } setDraft(checkout); router.push("/checkout"); }} className="space-y-4"><Field label="Pick-up date" name="startDate" type="date" required/><Field label="Return date" name="endDate" type="date" required/><p className="text-xs leading-5 text-slate-500">No payment details are collected in this demo.</p>{message && <p role="status" className="text-sm text-emerald-700">{message}</p>}<button className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Continue to checkout</button></form></Panel></div>;
     }
 
     if (routeKey === "/signin" || routeKey === "/signup") {
@@ -554,31 +638,114 @@ export default function DemoPage({ routeKey, recordId }) {
       const admin = routeKey === "/admin";
       const owner = routeKey === "/owner";
       const activityRows = admin ? allBookings : owner ? ownerBookings : renterBookings;
-      const viewAllHref = admin ? "/admin/bookings" : owner ? (ownedCars[0] ? `/owner/cars/${ownedCars[0].id}/bookings` : "/owner/cars") : "/bookings";
-      return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label={admin ? "Gross bookings" : owner ? "This month" : "Upcoming trips"} value={admin ? "$48.2k" : owner ? "$4,820" : String(renterBookings.length)} note={admin ? "+12.8% over last month" : owner ? "+8.2% from last month" : "Your trips"}/><Metric label={admin ? "Active users" : owner ? "Active vehicles" : "Completed trips"} value={admin ? "1,284" : owner ? String(ownedCars.length) : String(renterBookings.filter((booking) => ["completed", "reviewed"].includes(booking.status)).length)} note="Updated just now" icon="◎"/><Metric label={admin ? "Pending listings" : owner ? "Utilization" : "Saved cars"} value={admin ? "12" : owner ? "76%" : "3"} note="Needs your attention" icon="◷"/><Metric label="Open items" value={admin ? "6" : owner ? "2" : "1"} note="Review when you have a moment" icon="!"/></div><div className="mt-6 grid gap-5 xl:grid-cols-[1.4fr_0.8fr]"><Panel title={admin ? "Marketplace activity" : owner ? "Recent bookings" : "Upcoming bookings"} action={<ButtonLink href={viewAllHref}>View all</ButtonLink>}><DataTable columns={[{key:"id",label:"Booking"},{key:"car",label:"Vehicle"},{key:"startDate",label:"Dates"},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>}]} rows={activityRows.slice(0,3)}/></Panel><Panel title="Quick actions"><div className="space-y-3"><QuickAction href={admin?"/admin/listings":owner?"/owner/cars/new":"/cars"} title={admin?"Review new listings":owner?"Add a vehicle":"Find a car"} text={admin?"Keep the marketplace current.":owner?"Share another vehicle.":"Explore available premium vehicles."}/><QuickAction href={admin?"/admin/disputes":owner?"/owner/earnings":"/bookings"} title={admin?"Resolve open disputes":owner?"View earnings":"Manage bookings"} text="Go straight to the details that need you."/>{!admin&&!owner&&<div className="rounded-xl border border-orange-100 bg-orange-50 p-4"><p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">Simulated trip alert</p><p className="mt-1 text-sm font-semibold text-slate-800">Pickup reminder · Oct 26, 9:00 AM</p><p className="mt-1 text-xs leading-5 text-slate-600">Your host will confirm the airport meeting point before pickup.</p></div>}</div></Panel></div></>;
+      const viewAllHref = owner ? "/owner/bookings" : "/bookings";
+      const acceptedBookings = allBookings.filter((booking) => ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status));
+      const bookedValue = acceptedBookings.reduce((total, booking) => total + (Number(booking.total) || 0), 0);
+      const ownerCarStats = ownedCars.map((car) => getMonthlyCarStats(car, ownerBookings));
+      const ownerMonthlyValue = ownerCarStats.reduce((sum, car) => sum + car.monthlyBookingValue, 0);
+      const ownerActiveBookings = ownerBookings.filter((booking) => ["confirmed", "in_progress"].includes(booking.status)).length;
+      const ownerUtilization = ownerCarStats.length ? Math.round(ownerCarStats.reduce((sum, car) => sum + car.utilization, 0) / ownerCarStats.length) : 0;
+      const renterUpcomingTrips = renterBookings.filter((booking) => ["requested", "confirmed", "in_progress"].includes(booking.status)).length;
+      const renterCompletedTrips = renterBookings.filter((booking) => ["completed", "reviewed", "resolved"].includes(booking.status)).length;
+      const renterCancelledTrips = renterBookings.filter((booking) => booking.status === "cancelled").length;
+      const renterSpend = renterBookings.filter((booking) => ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status)).reduce((sum, booking) => sum + Number(booking.total || 0), 0);
+      const activeUserCount = userRows.filter((user) => String(user.status || "").toLowerCase() === "active").length;
+      const pendingListingCount = allCars.filter((car) => String(car.status || "").toLowerCase().includes("pending")).length;
+      const requestedBookingCount = allBookings.filter((booking) => booking.status === "requested").length;
+      const openDisputeCount = disputeRows.filter((dispute) => dispute.status === "open").length;
+      const openItemCount = pendingListingCount + requestedBookingCount + openDisputeCount;
+      const money = formatETB(bookedValue);
+      const singularize = (count, singular, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`;
+      return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label={admin ? "Booked value" : owner ? "This month" : "Upcoming trips"} value={admin ? money : owner ? formatETB(ownerMonthlyValue) : String(renterUpcomingTrips)} note={admin ? "Accepted booking total" : owner ? "Accepted booking value" : "Requested and active bookings"}/>
+        <Metric label={admin ? "Active users" : owner ? "Active vehicles" : "Completed trips"} value={admin ? String(activeUserCount) : owner ? String(ownedCars.length) : String(renterCompletedTrips)} note={admin ? userRows.length + " demo accounts" : owner ? ownerActiveBookings + " active bookings" : "Completed or resolved rentals"} icon="◎"/>
+        <Metric label={admin ? "Pending listings" : owner ? "Fleet utilization" : "Cancelled trips"} value={admin ? String(pendingListingCount) : owner ? ownerUtilization + "%" : String(renterCancelledTrips)} note={admin ? "Awaiting admin review" : owner ? "Average booked days this month" : "Your cancelled bookings"} icon="◷"/>
+        <Metric label={admin ? "Open items" : owner ? "Open items" : "Total demo spend"} value={admin ? String(openItemCount) : owner ? String(ownerBookings.filter((booking) => booking.status === "requested").length + ownerDisputeRows.filter((dispute) => dispute.status === "open").length) : formatETB(renterSpend)} note={admin ? singularize(openItemCount, "item") + " need review" : owner ? "Requests and open disputes" : "Accepted and held demo bookings"} icon="!"/>
+      </div><div className="mt-6 grid gap-5 xl:grid-cols-[1.4fr_0.8fr]"><Panel title={admin ? "Marketplace activity" : owner ? "Recent bookings" : "Upcoming bookings"} action={!admin && <ButtonLink href={viewAllHref}>View all</ButtonLink>}><DataTable columns={[{key:"id",label:"Booking"},{key:"car",label:"Vehicle"},{key:"startDate",label:"Dates",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>}]} rows={activityRows.slice(0,3)}/></Panel><Panel title="Quick actions"><div className="space-y-3"><QuickAction href={admin?"/admin/listings":owner?"/owner/cars/new":"/cars"} title={admin?"Review new listings":owner?"Add a vehicle":"Find a car"} text={admin?"Keep the marketplace current.":owner?"Share another vehicle.":"Explore available premium vehicles."}/><QuickAction href={admin?"/admin/disputes":owner?"/owner/earnings":"/bookings"} title={admin?"Resolve open disputes":owner?"View earnings":"Manage bookings"} text="Go straight to the details that need you."/>{!admin&&!owner&&<RenterTripAlert bookings={renterBookings}/>}</div></Panel></div></>;
     }
 
-    if (["/bookings", "/owner/cars/[id]/bookings", "/admin/bookings"].includes(routeKey)) {
+    if (["/bookings", "/owner/bookings", "/owner/cars/[id]/bookings"].includes(routeKey)) {
+      const isOwnerBookingRoute = ["/owner/bookings", "/owner/cars/[id]/bookings"].includes(routeKey);
       const ownerRows = allBookings.filter((item) => item.carId === recordId && ownedCarIds.has(item.carId));
-      const rows = routeKey === "/admin/bookings" ? allBookings : routeKey === "/owner/cars/[id]/bookings" ? ownerRows : renterBookings;
-      return <Panel title="Reservation activity" action={<div className="flex gap-2"><select aria-label="Filter bookings" className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="All">All</option>{["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"].map((status) => <option key={status} value={status}>{displayStatus(status)}</option>)}</select>{routeKey==="/bookings"&&<button onClick={()=>downloadCsv("my-bookings.csv",rows)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}</div>}><DataTable columns={[{key:"id",label:"Booking ID"},{key:"car",label:"Vehicle"},{key:"renter",label:"Renter"},{key:"startDate",label:"Pick-up"},{key:"endDate",label:"Return"},{key:"total",label:"Total",render:(value)=><span>${value}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=>routeKey==="/owner/cars/[id]/bookings"&&row.status==="requested"?<div className="flex gap-2"><button onClick={()=>approveBooking(value,rows)} className="font-semibold text-emerald-700">Approve</button><button onClick={()=>transitionBooking(value,"declined",rows)} className="font-semibold text-rose-600">Decline</button></div>:routeKey==="/owner/cars/[id]/bookings"&&row.status==="in_progress"?<div className="flex gap-2"><button onClick={()=>transitionBooking(value,"completed",rows)} className="font-semibold text-emerald-700">Mark returned</button><button onClick={()=>raiseBookingIssue(value,rows)} className="font-semibold text-rose-600">Raise issue</button></div>:routeKey==="/owner/cars/[id]/bookings"?null:<div className="flex flex-wrap gap-3"><Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}`}>Details</Link>{routeKey==="/bookings"&&row.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===value)&&<Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}/review`}>Review</Link>}{routeKey==="/bookings"&&row.status==="requested"&&<button onClick={()=>transitionBooking(value,"cancelled",rows)} className="font-semibold text-rose-600">Cancel request</button>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)>new Date()&&<button onClick={()=>transitionBooking(value,"cancelled",rows)} className="font-semibold text-rose-600">Cancel</button>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)<=new Date()&&<button onClick={()=>transitionBooking(value,"in_progress",rows)} className="font-semibold text-emerald-700">Start rental</button>}{routeKey==="/bookings"&&row.status==="in_progress"&&<><button onClick={()=>transitionBooking(value,"completed",rows)} className="font-semibold text-emerald-700">Mark returned</button><button onClick={()=>raiseBookingIssue(value,rows)} className="font-semibold text-rose-600">Raise issue</button></>}</div>}]} rows={rows.filter((item)=>filter==="All"||item.status===filter)}/></Panel>;
+      const rows = routeKey === "/owner/bookings" ? ownerBookings : routeKey === "/owner/cars/[id]/bookings" ? ownerRows : renterBookings;
+      return <Panel title="Reservation activity" action={<div className="flex flex-wrap gap-2"><select aria-label="Filter bookings" className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="All">All</option>{["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"].map((status) => <option key={status} value={status}>{displayStatus(status)}</option>)}</select>{routeKey==="/bookings"&&<button onClick={()=>downloadCsv("my-bookings.csv",rows)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}</div>}><DataTable columns={[{key:"id",label:"Booking ID"},{key:"car",label:"Vehicle"},{key:"renter",label:"Renter"},{key:"startDate",label:"Pick-up",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"endDate",label:"Return",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"total",label:"Total",render:(value)=><span>{formatETB(value)}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=>isOwnerBookingRoute?<div className="flex flex-wrap items-center gap-2"><Link className="font-semibold text-orange-600 hover:underline" href={`/owner/bookings/${value}`}>Booking details</Link>{row.status==="requested"&&<><ActionButton tone="positive" onClick={()=>approveBooking(value,rows)}>Approve</ActionButton><ActionButton tone="danger" onClick={()=>transitionBooking(value,"declined",rows)}>Decline</ActionButton></>}{row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}{!['requested','in_progress'].includes(row.status)&&<span className="text-xs font-medium text-slate-500">{({confirmed:"Approved",completed:"Marked returned",reviewed:"Marked returned",declined:"Declined",cancelled:"Cancelled",disputed:"Issue raised",resolved:"Resolved"})[row.status] || "—"}</span>}</div>:<div className="flex flex-wrap gap-3"><Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}`}>Details</Link>{routeKey==="/bookings"&&row.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===value)&&<Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}/review`}>Review</Link>}{routeKey==="/bookings"&&row.status==="requested"&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel request</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)>new Date()&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)<=new Date()&&<ActionButton tone="positive" onClick={()=>transitionBooking(value,"in_progress",rows)}>Start rental</ActionButton>}{routeKey==="/bookings"&&row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}</div>}]} rows={rows.filter((item)=>filter==="All"||item.status===filter)}/></Panel>;
+    }
+
+    if (routeKey === "/owner/bookings/[id]") {
+      const booking = ownerBookings.find((item) => item.id === recordId);
+      const car = allCars.find((item) => item.id === booking?.carId);
+      if (!booking) return <Panel title="Booking not found"><p className="text-sm text-slate-600">This booking is not available in your owner account.</p><ButtonLink href="/owner/bookings">Return to owner bookings</ButtonLink></Panel>;
+      return <div className="space-y-5"><Panel title="Renter booking details"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Info label="Booking reference" value={booking.id}/><Info label="Renter" value={booking.renter}/><Info label="Vehicle" value={booking.car || car?.name}/><Info label="Status" value={displayStatus(booking.status)}/><Info label="Pick-up date" value={formatDate(booking.startDate)}/><Info label="Return date" value={formatDate(booking.endDate)}/><Info label="Pick-up location" value={booking.pickupLocation?.label || car?.location || "Not set by renter"}/><Info label="Drop-off location" value={booking.dropoffLocation?.label || "Not set by renter"}/><Info label="Booking total" value={formatETB(booking.total)}/></div></Panel><Panel title="Renter’s pick-up and drop-off map">{booking.pickupLocation || booking.dropoffLocation ? <CarLocationLeafletMap latitude={car?.latitude} longitude={car?.longitude} pickupLocation={booking.pickupLocation} dropoffLocation={booking.dropoffLocation}/> : <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">The renter has not set map locations for this booking.</p>}<p className="mt-2 text-xs text-slate-400">Map pins are the approximate locations selected by the renter. This is not live vehicle tracking.</p></Panel></div>;
     }
 
     if (routeKey === "/bookings/[id]") {
       const booking = renterBookings.find((item) => item.id === recordId);
       if (!booking) return <Panel title="Booking not found"><p className="text-sm text-slate-600">This booking is not available in your renter account.</p><ButtonLink href="/bookings">Return to your bookings</ButtonLink></Panel>;
-      return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Reservation receipt"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Booking reference</p><p className="mt-1 text-lg font-semibold">{booking?.id || recordId}</p></div><Status>{booking?.status}</Status></div><div className="mt-6 grid gap-5 sm:grid-cols-2"><Info label="Vehicle" value={booking?.car}/><Info label="Renter" value={booking?.renter}/><Info label="Pick-up" value={booking?.startDate}/><Info label="Return" value={booking?.endDate}/><Info label="Pick-up location" value="Bole International Airport"/><Info label="Total" value={`$${booking?.total || 0}`}/><Info label="Mock payment" value={booking?.paymentStatus}/></div><div className="mt-6 flex flex-wrap gap-3"><ButtonLink href={`/bookings/${booking?.id || recordId}/track`}>Track trip</ButtonLink>{booking?.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===booking?.id)&&<ButtonLink href={`/bookings/${booking?.id || recordId}/review`} secondary>Leave a review</ButtonLink>}</div><p className="mt-5 text-xs text-slate-400">Demo receipt only. No payment was processed.</p></Panel><Panel title="Booking support"><p className="text-sm leading-6 text-slate-600">Keep this booking reference handy if you need help with pickup or your rental.</p><p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm font-semibold">{booking?.id || recordId}</p></Panel></div>;
+      return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Reservation receipt"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Booking reference</p><p className="mt-1 text-lg font-semibold">{booking?.id || recordId}</p></div><Status>{booking?.status}</Status></div><div className="mt-6 grid gap-5 sm:grid-cols-2"><Info label="Vehicle" value={booking?.car}/><Info label="Renter" value={booking?.renter}/><Info label="Pick-up" value={booking?.startDate}/><Info label="Return" value={booking?.endDate}/><Info label="Pick-up location" value={booking?.pickupLocation?.label || "Not set"}/><Info label="Drop-off location" value={booking?.dropoffLocation?.label || "Not set"}/><Info label="Total" value={formatETB(booking?.total || 0)}/><Info label="Mock payment" value={booking?.paymentStatus}/></div>{booking?.pickupLocation||booking?.dropoffLocation ? <div className="mt-5"><CarLocationLeafletMap pickupLocation={booking.pickupLocation} dropoffLocation={booking.dropoffLocation}/></div>:null}<div className="mt-6 flex flex-wrap gap-3"><ButtonLink href={`/bookings/${booking?.id || recordId}/track`}>Track trip</ButtonLink>{booking?.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===booking?.id)&&<ButtonLink href={`/bookings/${booking?.id || recordId}/review`} secondary>Leave a review</ButtonLink>}</div><p className="mt-5 text-xs text-slate-400">Demo receipt only. No payment was processed.</p></Panel><Panel title="Booking support"><p className="text-sm leading-6 text-slate-600">Keep this booking reference handy if you need help with pickup or your rental.</p><p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm font-semibold">{booking?.id || recordId}</p></Panel></div>;
     }
 
     if (routeKey === "/checkout") {
-      const checkout = draft?.summary || { car: "Audi R8 V10", price: 285 };
-      const dates = draft?.selectedDates || { startDate: "2026-10-26", endDate: "2026-10-29" };
-      return <div className="grid gap-5 xl:grid-cols-[1.3fr_0.8fr]"><div className="space-y-5"><Panel title="Trip details"><div className="grid gap-4 sm:grid-cols-2"><Info label="Vehicle" value={checkout.car || "Audi R8 V10"}/><Info label="Pick-up" value={dates.startDate || "Choose a date"}/><Info label="Return" value={dates.endDate || "Choose a date"}/><Info label="Pick-up location" value="Bole International Airport"/></div></Panel><Panel title="Pickup instructions"><p className="text-sm leading-6 text-slate-600">Your host will share the exact meeting point and contact details after the booking is confirmed.</p></Panel><Panel title="Payment"><p className="text-sm leading-6 text-slate-600">This is a demo checkout. No payment details are collected or processed.</p></Panel></div><Panel title="Price summary"><div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-slate-500">Rental estimate</span><strong>${Number(checkout.price || 285) * 3}</strong></div><div className="flex justify-between"><span className="text-slate-500">Service fee</span><strong>$35</strong></div><div className="flex justify-between border-t border-slate-100 pt-3 text-base"><span>Total</span><strong>${Number(checkout.price || 285) * 3 + 35}</strong></div></div><p className="my-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">Mock payment review only. Payment credentials are never stored.</p><button onClick={()=>{const car=allCars.find((item)=>item.id===checkout.carId);const startDate=dates.startDate;const endDate=dates.endDate;const days=Math.max(1,Math.ceil((new Date(`${endDate}T00:00:00Z`)-new Date(`${startDate}T00:00:00Z`))/86400000));const overlap=allBookings.some((item)=>item.carId===checkout.carId&&!["cancelled","declined","completed","reviewed","resolved"].includes(item.status)&&startDate<item.endDate&&endDate>item.startDate);if(!car||!["Approved","Active"].includes(car.status)){setMessage("This vehicle is not currently approved for booking.");return;}if(!startDate||!endDate||endDate<=startDate){setMessage("Choose valid pick-up and return dates.");return;}if(overlap){setMessage("Those dates overlap an active booking for this vehicle. Choose different dates.");return;}const pricePerDay=Number(checkout.price||car.pricePerDay||car.price);const subtotal=pricePerDay*days;const now=isoNow();const ok=saveRecord("bookings",{id:makeId("SW"),carId:car.id,renterId:session.userId,ownerId:car.ownerId,startDate,endDate,days,pricePerDay,subtotal,serviceFee:35,total:subtotal+35,paymentStatus:"Mock unpaid",status:"requested",createdAt:now,updatedAt:now});if(ok)setMessage("Demo booking request saved. No payment was taken.");}} className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Request booking</button>{message && <div role="status" className="mt-3 text-sm text-emerald-700">{message}<Link href="/bookings" className="ml-2 font-semibold underline">View bookings</Link></div>}</Panel></div>;
+      if (!draft?.summary || !draft?.selectedDates) return <Panel title="No trip to check out"><p className="text-sm leading-6 text-slate-600">Choose a vehicle and dates first. Your checkout draft may have expired or been cleared.</p><div className="mt-4"><ButtonLink href="/cars">Browse available cars</ButtonLink></div></Panel>;
+      const checkout = draft.summary;
+      const dates = draft.selectedDates;
+      const car = allCars.find((item) => item.id === checkout.carId);
+      const days = dates.startDate && dates.endDate ? Math.max(0, Math.ceil((new Date(dates.endDate + "T00:00:00Z") - new Date(dates.startDate + "T00:00:00Z")) / 86400000)) : 0;
+      const pricePerDay = Number(checkout.price || car?.pricePerDay || car?.price || 0);
+      const serviceFee = 35;
+      const total = pricePerDay * days + serviceFee;
+      const updateDraftLocation = (key, point) => {
+        const nextDraft = { ...draft, [key]: point };
+        const result = writeCheckoutDraft(nextDraft);
+        if (!result.ok) {
+          setMessage(result.message);
+          return;
+        }
+        setDraft(nextDraft);
+      };
+      const finishCheckout = () => {
+        const startDate = dates.startDate;
+        const endDate = dates.endDate;
+        const overlaps = allBookings.some((item) => item.carId === checkout.carId && !["cancelled", "declined", "completed", "reviewed", "resolved"].includes(item.status) && startDate < item.endDate && endDate > item.startDate);
+        if (!car || !["approved", "active"].includes(String(car.status || "").toLowerCase())) return setMessage("This vehicle is not currently approved for booking.");
+        if (!startDate || !endDate || days < 1) return setMessage("Choose valid pick-up and return dates.");
+        if (overlaps) return setMessage("Those dates overlap an active booking for this vehicle. Choose different dates.");
+        const subtotal = pricePerDay * days;
+        const now = isoNow();
+        if (!Number.isFinite(draft.pickupLocation?.latitude) || !Number.isFinite(draft.pickupLocation?.longitude) || !Number.isFinite(draft.dropoffLocation?.latitude) || !Number.isFinite(draft.dropoffLocation?.longitude)) return setMessage("Select both a pick-up and a drop-off point on the map.");
+        const saved = saveRecord("bookings", { id: makeId("SW"), carId: car.id, renterId: session.userId, ownerId: car.ownerId, startDate, endDate, days, pricePerDay, subtotal, serviceFee, total, pickupLocation: draft.pickupLocation, dropoffLocation: draft.dropoffLocation, paymentStatus: "Mock held", status: "requested", createdAt: now, updatedAt: now });
+        if (saved) {
+          writeCheckoutDraft({ selectedDates: null, summary: null });
+          setMessage("Demo payment simulated. Your booking request was sent; no payment was processed.");
+          router.push("/bookings");
+        }
+      };
+      return <div className="grid gap-5 xl:grid-cols-[1.3fr_0.8fr]">
+        <div className="space-y-5">
+          <Panel title="Trip details"><div className="grid gap-4 sm:grid-cols-2"><Info label="Vehicle" value={checkout.car || car?.name || "Vehicle"}/><Info label="Pick-up" value={dates.startDate}/><Info label="Return" value={dates.endDate}/><Info label="Pick-up location" value={car?.location || "To be confirmed"}/><Info label="Rental days" value={String(days)}/></div></Panel>
+          <Panel title="Set pick-up and drop-off locations"><p className="text-sm leading-6 text-slate-600">Choose a point type, then click the map to place its marker. You can edit each location’s label below.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>setLocationTarget("pickupLocation")} aria-pressed={locationTarget==="pickupLocation"} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${locationTarget==="pickupLocation"?"border-blue-300 bg-blue-50 text-blue-800":"border-slate-200 text-slate-600"}`}>Set pick-up point</button><button type="button" onClick={()=>setLocationTarget("dropoffLocation")} aria-pressed={locationTarget==="dropoffLocation"} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${locationTarget==="dropoffLocation"?"border-orange-300 bg-orange-50 text-orange-800":"border-slate-200 text-slate-600"}`}>Set drop-off point</button></div><CarLocationLeafletMap latitude={car?.latitude} longitude={car?.longitude} pickupLocation={draft.pickupLocation} dropoffLocation={draft.dropoffLocation} selectionTarget={locationTarget} onLocationSelect={(target, point)=>updateDraftLocation(target,point)}/><div className="mt-4 grid gap-3 sm:grid-cols-2">{[["Pick-up location", "pickupLocation"],["Drop-off location", "dropoffLocation"]].map(([label,key])=><label key={key} className="block text-sm font-medium text-slate-700">{label}<input className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-400" value={draft[key]?.label || ""} onChange={(event)=>updateDraftLocation(key,{...(draft[key]||{latitude:null,longitude:null}),label:event.target.value})} placeholder="Click the map to choose a point" /></label>)}</div></Panel>
+          <Panel title="Demo payment"><p className="text-sm leading-6 text-slate-600">This is a simulated payment step. No card details or payment credentials are requested or stored.</p></Panel>
+        </div>
+        <Panel title="Price summary">
+          <div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-slate-500">{pricePerDay} × {days} days</span><strong>{"$" + (pricePerDay * days).toLocaleString("en-US")}</strong></div><div className="flex justify-between"><span className="text-slate-500">Service fee</span><strong>{"$" + serviceFee}</strong></div><div className="flex justify-between border-t border-slate-100 pt-3 text-base"><span>Total</span><strong>{"$" + total.toLocaleString("en-US")}</strong></div></div>
+          <p className="my-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">Demo only · no charge will be made.</p>
+          <button onClick={finishCheckout} className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Complete demo payment &amp; request</button>
+          {message && <p role="status" className="mt-3 text-sm text-slate-700">{message}</p>}
+        </Panel>
+      </div>;
     }
 
     if (routeKey === "/bookings/[id]/track") {
       const booking = renterBookings.find((item) => item.id === recordId);
-      return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Trip status"><div className="mb-4 flex items-center gap-3"><Status>{booking?.status}</Status><span className="text-sm text-slate-600">{booking?.car}</span></div><div className="rounded-2xl bg-gradient-to-br from-slate-100 to-emerald-50 p-6"><div className="flex min-h-60 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/70"><div className="text-center"><span className="text-4xl">⌖</span><p className="mt-2 font-semibold text-slate-800">Pickup route preview</p><p className="mt-1 text-sm text-slate-500">Live location is simulated in this demo.</p></div></div></div></Panel><Panel title="Trip timeline"><Timeline items={[["Booking requested",booking?.status==="requested"?"Waiting for the owner’s decision.":"Request received."],["Booking confirmed",booking?.status==="confirmed"?"Your mock payment is held for this reservation.":"Reservation confirmation stage."],["Trip in progress",booking?.status==="in_progress"?"The rental is underway.":"Starts when the rental begins."],["Return and review",booking?.status==="completed"?"Trip complete. You can leave one review.":booking?.status==="reviewed"?"Trip complete and review submitted.":"Mark the vehicle returned after the trip."]]}/></Panel></div>;
+      const car = allCars.find((item) => item.id === booking?.carId);
+      const trackingMessage = booking?.status === "in_progress" ? "Trip in progress · sample status" : booking?.status === "completed" || booking?.status === "reviewed" ? "Trip completed" : "Trip location details";
+      return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <Panel title="Pick-up and drop-off map">
+          {booking?.pickupLocation||booking?.dropoffLocation ? <CarLocationLeafletMap latitude={car?.latitude} longitude={car?.longitude} pickupLocation={booking.pickupLocation} dropoffLocation={booking.dropoffLocation}/> : <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">The renter has not set pick-up and drop-off points for this booking.</p>}
+          <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm"><span className="font-semibold text-slate-800">{trackingMessage}</span><span className="text-slate-500">{car?.name || "Vehicle"}</span></div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Pins show the renter-selected locations. This demo does not use GPS or provide live vehicle tracking.</p>
+        </Panel>
+        <Panel title="Trip timeline"><Timeline items={[["Booking requested",booking?.status==="requested"?"Waiting for the owner’s decision.":"Request received."],["Booking confirmed",booking?.status==="confirmed"?"Your mock payment is held for this reservation.":"Reservation confirmation stage."],["Trip in progress",booking?.status==="in_progress"?"The rental is underway.":"Starts when the rental begins."],["Return and review",booking?.status==="completed"?"Trip complete. You can leave one review.":booking?.status==="reviewed"?"Trip complete and review submitted.":"Mark the vehicle returned after the trip."]]}/></Panel>
+      </div>;
     }
 
     if (routeKey === "/bookings/[id]/review") {
@@ -590,7 +757,7 @@ export default function DemoPage({ routeKey, recordId }) {
     if (routeKey === "/owner/cars" || routeKey === "/admin/listings") {
       const isModeration = routeKey === "/admin/listings";
       const rows = isModeration ? (records.cars?.length ? records.cars : demoCars.map((car)=>({...car,owner:"Demo owner",status:"Pending review"}))) : ownedCars;
-      return <><Panel title={isModeration ? "Listings awaiting review" : "Your vehicles"} action={!isModeration ? <ButtonLink href="/owner/cars/new">+ Add a vehicle</ButtonLink> : null}><DataTable columns={[{key:"name",label:"Vehicle"},{key:"location",label:"Location"},{key:"category",label:"Category"},{key:"price",label:"Daily rate",render:(value)=><span>${value}/day</span>},{key:"status",label:"Status",render:(value)=><Status>{value||"Pending review"}</Status>},{key:"id",label:"Actions",render:(value,row)=>isModeration?<div className="flex gap-2"><button onClick={()=>updateCarStatus(value,"Approved",rows)} className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button><button onClick={()=>updateCarStatus(value,"Rejected",rows)} className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100">Reject</button></div>:<div className="flex flex-wrap gap-3"><Link className="font-semibold text-orange-600" href={`/owner/cars/${value}/edit`}>Edit</Link><Link className="font-semibold text-slate-600" href={`/owner/cars/${value}/availability`}>Availability</Link><Link className="font-semibold text-slate-600" href={`/owner/cars/${value}/bookings`}>Bookings</Link><button onClick={()=>updateCarStatus(value,row.status==="Inactive"?"Approved":"Inactive",rows)} className="font-semibold text-rose-600">{row.status==="Inactive"?"Reactivate":"Deactivate"}</button></div>}]} rows={rows}/></Panel>{message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}</>;
+      return <><Panel title={isModeration ? "Listings awaiting review" : "Your vehicles"} action={!isModeration ? <ButtonLink href="/owner/cars/new">+ Add a vehicle</ButtonLink> : null}><DataTable columns={[{key:"name",label:"Vehicle"},{key:"location",label:"Location"},{key:"category",label:"Category"},{key:"price",label:"Daily rate",render:(value)=><span>{formatETB(value)}/day</span>},{key:"status",label:"Status",render:(value)=><Status>{value||"Pending review"}</Status>},{key:"id",label:"Actions",render:(value,row)=>isModeration?<div className="flex gap-2"><ActionButton tone="positive" onClick={()=>updateCarStatus(value,"Approved",rows)}>Approve</ActionButton><ActionButton tone="danger" onClick={()=>updateCarStatus(value,"Rejected",rows)}>Reject</ActionButton></div>:<details className="group relative inline-block text-left"><summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">Manage <span aria-hidden="true" className="text-slate-400 transition group-open:rotate-180">⌄</span></summary><div className="absolute right-0 top-full z-30 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"><Link className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700" href={`/owner/cars/${value}/edit`}>Edit details</Link><Link className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" href={`/owner/cars/${value}/availability`}>Availability</Link><Link className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" href={`/owner/cars/${value}/bookings`}>Bookings</Link><div className="my-1 border-t border-slate-100"/><ActionButton className="w-full justify-start" tone={row.status==="Inactive"?"positive":"danger"} onClick={()=>updateCarStatus(value,row.status==="Inactive"?"Approved":"Inactive",rows)}>{row.status==="Inactive"?"Reactivate":"Deactivate"}</ActionButton></div></details>}]} rows={rows}/></Panel>{message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}</>;
     }
 
     if (["/owner/cars/new", "/owner/cars/[id]/edit"].includes(routeKey)) {
@@ -602,19 +769,19 @@ export default function DemoPage({ routeKey, recordId }) {
         { label: "Model", name: "model", required: true, placeholder: "e.g. R8 V10", defaultValue: car.model },
         { label: "Year", name: "year", type: "number", min: "1990", defaultValue: car.year || "2024" },
         { label: "Category", name: "category", defaultValue: car.category || "Luxury", options: [{ label: "Luxury", value: "Luxury" }, { label: "Exotic", value: "Exotic" }, { label: "Premium SUV", value: "Premium SUV" }, { label: "Sedan", value: "Sedan" }] },
-        { label: "Daily rate (USD)", name: "price", type: "number", required: true, min: "1", placeholder: "150", defaultValue: car.price },
+        { label: "Daily rate (ETB)", name: "price", type: "number", required: true, min: "1", placeholder: "150", defaultValue: car.price },
         { label: "Seats", name: "seats", type: "number", min: "1", defaultValue: car.seats || "5" },
         { label: "Transmission", name: "transmission", defaultValue: car.transmission || "Automatic", options: [{ label: "Automatic", value: "Automatic" }, { label: "Manual", value: "Manual" }] },
         { label: "Pickup location", name: "location", required: true, placeholder: "City or airport", defaultValue: car.location },
         { label: "Neighbourhood", name: "neighbourhood", placeholder: "e.g. Bole", defaultValue: car.neighbourhood },
         { label: "Latitude", name: "latitude", type: "number", defaultValue: car.latitude },
         { label: "Longitude", name: "longitude", type: "number", defaultValue: car.longitude },
-        { label: "Demo photo", name: "photo", type: "file", full: true },
+        { label: "Vehicle photo", name: "photo", defaultValue: car.photos?.[0] || demoPhotoOptions[0].value, options: demoPhotoOptions, full: true },
         { label: "Description", name: "description", type: "textarea", full: true, placeholder: "Describe the vehicle and pickup experience", defaultValue: car.description },
       ];
-      return <FormCard title={editing ? "Update your vehicle" : "Vehicle details"} description="Share clear, accurate details to help renters choose confidently. Demo photos are represented by their filename." fields={fields} message={message} submitLabel={editing ? "Save vehicle changes" : "Save vehicle listing"} onSubmit={formAction((values) => {
+      return <FormCard title={editing ? "Update your vehicle" : "Vehicle details"} description="Share clear, accurate details to help renters choose confidently. Choose one of the local demo photos for this listing." fields={fields} message={message} submitLabel={editing ? "Save vehicle changes" : "Save vehicle listing"} onSubmit={formAction((values) => {
         const { photo, ...details } = values;
-        const changes = { ...details, photoName: photo?.name || car.photoName || "", price: Number(details.price), pricePerDay: Number(details.price), seats: Number(details.seats), year: Number(details.year), latitude: Number(details.latitude) || null, longitude: Number(details.longitude) || null, photos: car.photos?.length ? car.photos : ["https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=1000&q=80"], unavailableDates: car.unavailableDates || [], createdAt: car.createdAt || isoNow() };
+        const changes = { ...details, price: Number(details.price), pricePerDay: Number(details.price), seats: Number(details.seats), year: Number(details.year), latitude: Number(details.latitude) || null, longitude: Number(details.longitude) || null, photos: [photo || car.photos?.[0] || demoPhotoOptions[0].value], unavailableDates: car.unavailableDates || [], createdAt: car.createdAt || isoNow() };
         if (editing) updateCollectionRecord("cars", recordId, changes, allCars);
         else saveRecord("cars", { id: makeId("car"), ...changes, status: "Pending review", owner: session.metadata?.name || "Demo owner", ownerId: session.userId });
       })}/>;
@@ -622,19 +789,52 @@ export default function DemoPage({ routeKey, recordId }) {
 
     if (routeKey === "/owner/cars/[id]/availability") return <div className="grid gap-5 xl:grid-cols-[1fr_0.85fr]"><FormCard title="Availability settings" description="Set the dates when renters can request this vehicle." fields={[{label:"Available from",name:"availableFrom",type:"date",required:true},{label:"Available until",name:"availableUntil",type:"date",required:true},{label:"Minimum rental (days)",name:"minimumDays",type:"number",min:"1",defaultValue:"1"},{label:"Notice period",name:"notice",options:[{label:"Same day",value:"0"},{label:"1 day",value:"1"},{label:"2 days",value:"2"},{label:"1 week",value:"7"}]}]} message={message} submitLabel="Save availability" onSubmit={formAction((values)=>updateCollectionRecord("cars",recordId,{availability:values},allCars))}/><Panel title="This month"><CalendarPreview/></Panel></div>;
 
-    if (routeKey === "/owner/earnings") return <><div className="grid gap-4 sm:grid-cols-3"><Metric label="Gross earnings" value="$12,840" note="Year to date"/><Metric label="Available payout" value="$1,920" note="Ready for payout" icon="$"/><Metric label="Occupancy" value="76%" note="Across your fleet" icon="◷"/></div><div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Monthly earnings" action={<button onClick={()=>downloadCsv("owner-earnings.csv",ownerBookings)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}><EarningsChart/></Panel><Panel title="Recent payouts"><DataTable columns={[{key:"date",label:"Date"},{key:"reference",label:"Reference"},{key:"amount",label:"Amount"},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>}]} rows={[{date:"Oct 18",reference:"PO-0818",amount:"$1,240",status:"Paid"},{date:"Oct 04",reference:"PO-0804",amount:"$980",status:"Paid"},{date:"Sep 20",reference:"PO-0920",amount:"$1,560",status:"Paid"}]}/></Panel></div></>;
+    if (routeKey === "/owner/earnings") {
+      const acceptedOwnerBookings = ownerBookings.filter((booking) => ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status));
+      const completedOwnerBookings = ownerBookings.filter((booking) => ["completed", "reviewed", "resolved"].includes(booking.status));
+      const gross = acceptedOwnerBookings.reduce((sum, booking) => sum + Number(booking.total || 0), 0);
+      const completedValue = completedOwnerBookings.reduce((sum, booking) => sum + Number(booking.total || 0), 0);
+      const carStats = ownedCars.map((car) => getMonthlyCarStats(car, ownerBookings));
+      const monthValue = carStats.reduce((sum, car) => sum + car.monthlyBookingValue, 0);
+      const averageUtilization = carStats.length ? Math.round(carStats.reduce((sum, car) => sum + car.utilization, 0) / carStats.length) : 0;
+      return <>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Metric label="Accepted booking value" value={formatETB(gross)} note="From your booking records"/>
+          <Metric label="Completed booking value" value={formatETB(completedValue)} note="Completed, reviewed, and resolved trips" icon="Br"/>
+          <Metric label="This month's booking value" value={formatETB(monthValue)} note="Bookings overlapping this month" icon="◷"/>
+        </div>
+        <div className="mt-5 grid gap-5">
+          <Panel title="Monthly booking value" action={<button onClick={() => downloadCsv("owner-earnings.csv", ownerBookings)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}>
+            <EarningsChart bookings={ownerBookings}/>
+            <p className="mt-3 text-xs text-slate-500">Based on booking start dates and current statuses. No payout processing is connected.</p>
+          </Panel>
+          <Panel title="Per-vehicle earnings and utilization">
+            <p className="mb-4 text-xs text-slate-500">Utilization is the share of this calendar month booked for each vehicle; earnings include accepted bookings for that vehicle.</p>
+            <DataTable columns={[
+              {key:"name",label:"Vehicle"},
+              {key:"bookingCount",label:"Accepted trips"},
+              {key:"bookingValue",label:"Accepted booking value",render:(value)=>formatETB(value)},
+              {key:"monthlyBookingValue",label:"This month's value",render:(value)=>formatETB(value)},
+              {key:"utilization",label:"Monthly utilization",render:(value)=>value+"%"},
+            ]} rows={carStats}/>
+            {!carStats.length && <EmptyState title="No vehicles yet" text="Add a vehicle to see its booking performance here."/>}
+            <p className="mt-4 text-xs text-slate-500">Fleet average monthly utilization: {averageUtilization}%.</p>
+          </Panel>
+        </div>
+      </>;
+    }
 
-    if (routeKey === "/owner/reviews") return <div className="grid gap-5 xl:grid-cols-[1.35fr_0.8fr]"><Panel title="Latest reviews" action={<span className="text-xs text-slate-500">Average 4.9 ★</span>}><DataTable columns={[{key:"renter",label:"Renter"},{key:"car",label:"Vehicle"},{key:"rating",label:"Rating"},{key:"comment",label:"Review"},{key:"ownerReply",label:"Your reply",render:(value)=><span className="text-slate-500">{value||"No reply yet"}</span>}]} rows={ownerReviewRows}/></Panel>{ownerReviewRows.length>0&&<FormCard title="Reply to a review" description="A thoughtful response helps build trust with future renters." fields={[{label:"Review",name:"reviewId",options:ownerReviewRows.map((review)=>({label:`${review.renter} · ${review.car}`,value:review.id}))},{label:"Your reply",name:"ownerReply",type:"textarea",required:true,full:true}]} message={message} submitLabel="Save reply" onSubmit={formAction((values)=>updateCollectionRecord("reviews",values.reviewId,{ownerReply:values.ownerReply},ownerReviewRows))}/>}</div>;
+    if (routeKey === "/owner/reviews") return <div className="grid gap-5 xl:grid-cols-[1.35fr_0.8fr]"><Panel title="Latest reviews" action={<ReviewAverage reviews={ownerReviewRows}/>}><DataTable columns={[{key:"renter",label:"Renter"},{key:"car",label:"Vehicle"},{key:"rating",label:"Rating"},{key:"comment",label:"Review"},{key:"ownerReply",label:"Your reply",render:(value)=><span className="text-slate-500">{value||"No reply yet"}</span>}]} rows={ownerReviewRows}/></Panel>{ownerReviewRows.length>0&&<FormCard title="Reply to a review" description="A thoughtful response helps build trust with future renters." fields={[{label:"Review",name:"reviewId",options:ownerReviewRows.map((review)=>({label:`${review.renter} · ${review.car}`,value:review.id}))},{label:"Your reply",name:"ownerReply",type:"textarea",required:true,full:true}]} message={message} submitLabel="Save reply" onSubmit={formAction((values)=>updateCollectionRecord("reviews",values.reviewId,{ownerReply:values.ownerReply},ownerReviewRows))}/>}</div>;
 
-    if (routeKey === "/owner/disputes") return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Disputes involving your rentals"><DataTable columns={[{key:"id",label:"Case"},{key:"bookingId",label:"Booking"},{key:"reason",label:"Issue"},{key:"createdAt",label:"Created"},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>}]} rows={ownerDisputeRows}/></Panel>{ownerDisputeRows.some((dispute)=>dispute.status==="open")&&<FormCard title="Send a response" description="Add information related to the booking and case." fields={[{label:"Dispute",name:"disputeId",options:ownerDisputeRows.filter((item)=>item.status==="open").map((item)=>({label:`${item.id} · ${item.reason}`,value:item.id}))},{label:"Response",name:"ownerReply",type:"textarea",required:true,full:true}]} message={message} submitLabel="Submit response" onSubmit={formAction((values)=>updateCollectionRecord("disputes",values.disputeId,{ownerReply:values.ownerReply},ownerDisputeRows))}/>}</div>;
+    if (routeKey === "/owner/disputes") return <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><Panel title="Disputes involving your rentals"><DataTable columns={[{key:"id",label:"Case"},{key:"bookingId",label:"Booking"},{key:"reason",label:"Issue"},{key:"createdAt",label:"Created",render:(value)=><time dateTime={value}>{formatRelativeTime(value)}</time>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>}]} rows={ownerDisputeRows}/></Panel>{ownerDisputeRows.some((dispute)=>dispute.status==="open")&&<FormCard title="Send a response" description="Add information related to the booking and case." fields={[{label:"Dispute",name:"disputeId",options:ownerDisputeRows.filter((item)=>item.status==="open").map((item)=>({label:`${item.id} · ${item.reason}`,value:item.id}))},{label:"Response",name:"ownerReply",type:"textarea",required:true,full:true}]} message={message} submitLabel="Submit response" onSubmit={formAction((values)=>updateCollectionRecord("disputes",values.disputeId,{ownerReply:values.ownerReply},ownerDisputeRows))}/>}</div>;
 
     if (["/admin/users", "/admin/disputes"].includes(routeKey)) {
       const users = routeKey === "/admin/users";
       const rows = users ? userRows : disputeRows;
-      return <Panel title={users?"Marketplace accounts":"Open cases"}><DataTable columns={users?[{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"roles",label:"Roles",render:(_,row)=><span>{normalizeRoles(row).join(" · ")||"—"}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=><div className="flex flex-wrap gap-3"><Link className="font-semibold text-orange-600" href={`/admin/users/${value}`}>View account</Link><button onClick={()=>updateCollectionRecord("users",value,{status:row.status==="Suspended"?"Active":"Suspended"},userRows)} className="font-semibold text-rose-600">{row.status==="Suspended"?"Reinstate":"Suspend"}</button></div>}]:[{key:"id",label:"Case"},{key:"bookingId",label:"Booking"},{key:"reason",label:"Issue"},{key:"createdAt",label:"Created"},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"",render:(value)=><Link className="font-semibold text-orange-600" href={`/admin/disputes/${value}`}>Review</Link>}]} rows={rows}/></Panel>;
+      return <Panel title={users?"Marketplace accounts":"Open cases"}><DataTable columns={users?[{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"roles",label:"Roles",render:(_,row)=><span>{normalizeRoles(row).join(" · ")||"—"}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=><div className="flex flex-wrap items-center gap-2"><Link aria-label={`View ${row.name || "user"} account`} className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" href={`/admin/users/${value}`}><span>View account</span><span aria-hidden="true" className="text-sm leading-none">→</span></Link><ActionButton className="min-h-9" tone={row.status==="Suspended"?"positive":"danger"} onClick={()=>updateCollectionRecord("users",value,{status:row.status==="Suspended"?"Active":"Suspended"},userRows)}>{row.status==="Suspended"?"Reinstate":"Suspend"}</ActionButton></div>}]:[{key:"id",label:"Case"},{key:"bookingId",label:"Booking"},{key:"reason",label:"Issue"},{key:"createdAt",label:"Created"},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"",render:(value)=><Link aria-label={`Review dispute ${value}`} className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" href={`/admin/disputes/${value}`}><span>Review</span><span aria-hidden="true" className="text-sm leading-none">→</span></Link>}]} rows={rows}/></Panel>;
     }
 
-    if (routeKey === "/admin/users/[id]") { const user=userRows.find((item)=>item.id===recordId)||userRows[0]; return <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]"><Panel title="Account summary"><div className="flex items-center gap-4"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-xl font-semibold text-orange-700">{user?.name?.[0]||"U"}</div><div><h3 className="font-semibold text-slate-950">{user?.name}</h3><p className="text-sm text-slate-500">{user?.email}</p></div></div><div className="mt-5 grid grid-cols-2 gap-3"><Info label="Roles" value={normalizeRoles(user).join(" · ")}/><Info label="Account status" value={user?.status}/><Info label="Member since" value="October 2026"/><Info label="Completed trips" value="4"/></div><button onClick={()=>updateCollectionRecord("users",user.id,{status:user.status==="Suspended"?"Active":"Suspended"},userRows)} className="mt-5 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">{user?.status==="Suspended"?"Reinstate account":"Suspend account"}</button>{message&&<p role="status" className="mt-3 text-sm text-slate-500">{message}</p>}</Panel><Panel title="Recent activity"><Timeline items={[["Account created","Demo profile is active."],["First booking","Reservation SW-24011 completed."],["Latest sign-in","Current browser session."]]}/></Panel></div>; }
+    if (routeKey === "/admin/users/[id]") { const user=userRows.find((item)=>item.id===recordId)||userRows[0]; return <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]"><Panel title="Account summary"><div className="flex items-center gap-4"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-xl font-semibold text-orange-700">{user?.name?.[0]||"U"}</div><div><h3 className="font-semibold text-slate-950">{user?.name}</h3><p className="text-sm text-slate-500">{user?.email}</p></div></div><div className="mt-5 grid grid-cols-2 gap-3"><Info label="Roles" value={normalizeRoles(user).join(" · ")}/><Info label="Account status" value={user?.status}/><Info label="Member since" value="October 2026"/><Info label="Completed trips" value="4"/></div><ActionButton className="mt-5" tone={user?.status==="Suspended"?"positive":"danger"} onClick={()=>updateCollectionRecord("users",user.id,{status:user.status==="Suspended"?"Active":"Suspended"},userRows)}>{user?.status==="Suspended"?"Reinstate account":"Suspend account"}</ActionButton>{message&&<p role="status" className="mt-3 text-sm text-slate-500">{message}</p>}</Panel><Panel title="Recent activity"><Timeline items={[["Account created","Demo profile is active."],["First booking","Reservation SW-24011 completed."],["Latest sign-in","Current browser session."]]}/></Panel></div>; }
 
     if (routeKey === "/admin/disputes/[id]") {
       const dispute = disputeRows.find((item) => item.id === recordId);
@@ -644,9 +844,53 @@ export default function DemoPage({ routeKey, recordId }) {
       return <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]"><Panel title="Case summary"><div className="grid gap-4 sm:grid-cols-2"><Info label="Case" value={dispute.id}/><Info label="Booking" value={dispute.bookingId}/><Info label="Issue type" value={dispute.reason}/><Info label="Status" value={dispute.status}/></div><div className="mt-5 rounded-xl bg-slate-50 p-4"><p className="text-sm font-semibold">Renter report</p><p className="mt-2 text-sm leading-6 text-slate-600">{dispute.description}</p></div>{dispute.resolutionNotes&&<p className="mt-4 text-sm text-slate-600">Resolution notes: {dispute.resolutionNotes}</p>}</Panel>{canResolve?<FormCard title="Resolution notes" fields={[{label:"Resolution",name:"resolution",options:[{label:"Choose an outcome",value:""},{label:"Resolved in renter’s favor",value:"Renter resolution"},{label:"Resolved in owner’s favor",value:"Owner resolution"},{label:"No action required",value:"No action"}]},{label:"Notes",name:"notes",type:"textarea",required:true,full:true}]} message={message} submitLabel="Record resolution" onSubmit={formAction((values)=>{if(updateCollectionRecord("disputes",recordId,{resolutionNotes:values.resolution + ": " + values.notes,resolvedBy:session.userId,status:"resolved",resolvedAt:isoNow()},disputeRows))transitionBooking(dispute.bookingId,"resolved");})}/>:<Panel title="Workflow closed"><p className="text-sm text-slate-600">This dispute is no longer open for resolution.</p></Panel>}</div>;
     }
 
-    if (routeKey === "/admin/announcements") return <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]"><FormCard title="New announcement" description="Share a clear update with renters and owners." fields={[{label:"Announcement title",name:"title",required:true,placeholder:"A short, helpful headline",full:true},{label:"Audience",name:"audience",options:[{label:"Everyone",value:"Everyone"},{label:"Renters",value:"Renters"},{label:"Owners",value:"Owners"}]},{label:"Publish date",name:"date",type:"date"},{label:"Message",name:"message",type:"textarea",required:true,full:true}]} message={message} submitLabel="Publish announcement" onSubmit={formAction((values)=>saveRecord("announcements",{id:makeId("announcement"),active:true,status:"Published",createdAt:isoNow(),createdBy:session.userId,...values}))}/><Panel title="Published announcements"><div className="space-y-3">{announcementRows.filter((item)=>item.active!==false).length?announcementRows.filter((item)=>item.active!==false).map((item)=><div key={item.id} className="rounded-xl border border-slate-100 p-4"><div className="flex justify-between gap-2"><strong>{item.title}</strong><Status>{item.status}</Status></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p><button onClick={()=>updateCollectionRecord("announcements",item.id,{active:false,status:"Inactive"},announcementRows)} className="mt-3 text-xs font-semibold text-rose-600">Deactivate</button></div>):<EmptyState title="No active announcements" text="Published updates will appear here."/>}</div></Panel></div>;
+    if (routeKey === "/admin/announcements") return <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]"><FormCard title="New announcement" description="Share a clear update with renters and owners." fields={[{label:"Announcement title",name:"title",required:true,placeholder:"A short, helpful headline",full:true},{label:"Audience",name:"audience",options:[{label:"Everyone",value:"Everyone"},{label:"Renters",value:"Renters"},{label:"Owners",value:"Owners"}]},{label:"Publish date",name:"date",type:"date"},{label:"Message",name:"message",type:"textarea",required:true,full:true}]} message={message} submitLabel="Publish announcement" onSubmit={formAction((values)=>saveRecord("announcements",{id:makeId("announcement"),active:true,status:"Published",createdAt:isoNow(),createdBy:session.userId,...values}))}/><Panel title="Published announcements"><div className="space-y-3">{announcementRows.filter((item)=>item.active!==false).length?announcementRows.filter((item)=>item.active!==false).map((item)=><div key={item.id} className="rounded-xl border border-slate-100 p-4"><div className="flex justify-between gap-2"><strong>{item.title}</strong><Status>{item.status}</Status></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p><ActionButton className="mt-3" tone="danger" onClick={()=>updateCollectionRecord("announcements",item.id,{active:false,status:"Inactive"},announcementRows)}>Deactivate</ActionButton></div>):<EmptyState title="No active announcements" text="Published updates will appear here."/>}</div></Panel></div>;
 
-    if (routeKey === "/admin/reports") return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Bookings" value="248" note="This month"/><Metric label="Marketplace GMV" value="$48,260" note="+12.8% month over month"/><Metric label="Average booking" value="$194" note="Across all categories"/><Metric label="Cancellation rate" value="3.2%" note="Within target"/></div><div className="mt-5 grid gap-5 xl:grid-cols-2"><Panel title="Booking volume" action={<button onClick={()=>downloadCsv("platform-report.csv",allBookings)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export report</button>}><EarningsChart/></Panel><Panel title="Fleet mix"><div className="space-y-4">{[["Luxury",42],["Premium SUV",31],["Exotic",18],["Sedan",9]].map(([label,value])=><div key={label}><div className="mb-1.5 flex justify-between text-sm"><span>{label}</span><strong>{value}%</strong></div><div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-orange-500" style={{width:`${value}%`}}/></div></div>)}</div></Panel></div></>;
+    if (routeKey === "/admin/reports") {
+      const statusCounts = ["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"].map((status) => ({ status, count: allBookings.filter((booking) => booking.status === status).length }));
+      const approvedCars = allCars.filter((car) => ["approved", "active"].includes(String(car.status || "").toLowerCase()));
+      const accepted = allBookings.filter((booking) => ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status));
+      const totalValue = accepted.reduce((sum, booking) => sum + (Number(booking.total) || 0), 0);
+      const commission = totalValue * commissionRate / 100;
+      const reportRows = allBookings.map((booking) => ({
+        ...booking,
+        mockPlatformFee: ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status)
+          ? (Number(booking.total) || 0) * commissionRate / 100
+          : 0,
+      }));
+      const months = Array.from({ length: 6 }, (_, index) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - 5 + index, 1);
+        const key = date.toISOString().slice(0, 7);
+        return {
+          label: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+          month: key,
+          count: allBookings.filter((booking) => String(booking.createdAt || booking.startDate || "").slice(0, 7) === key).length,
+        };
+      });
+      const cancellations = allBookings.filter((booking) => booking.status === "cancelled").length;
+      const maxMonthly = Math.max(1, ...months.map((month) => month.count));
+      return <>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric label="Demo users" value={String(userRows.length)} note={userRows.filter((user) => String(user.status).toLowerCase() === "active").length + " active"}/>
+          <Metric label="Approved vehicles" value={String(approvedCars.length)} note={allCars.length + " total listings"}/>
+          <Metric label="Accepted booking value" value={formatETB(totalValue)} note={accepted.length + " accepted reservations"}/>
+          <Metric label="Mock platform fee" value={formatETB(commission)} note={"Illustrative at " + commissionRate + "% · no fees collected"}/>
+          <Metric label="Cancellation rate" value={(allBookings.length ? Math.round(cancellations / allBookings.length * 100) : 0) + "%"} note={cancellations + " cancelled bookings"}/>
+        </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <Panel title="Bookings by status" action={<button onClick={() => downloadCsv("platform-report.csv", reportRows)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export report</button>}>
+            <DataTable columns={[{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"count",label:"Bookings"}]} rows={statusCounts}/>
+          </Panel>
+          <Panel title="Booking volume · last six months" action={<label className="flex items-center gap-2 text-xs text-slate-500">Assumed fee<select aria-label="Assumed mock platform fee rate" className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800" value={commissionRate} onChange={(event) => setCommissionRate(Number(event.target.value))}><option value={5}>5%</option><option value={10}>10%</option><option value={15}>15%</option><option value={20}>20%</option></select></label>}>
+            <div className="flex h-56 items-end gap-3 border-b border-slate-100 px-2">{months.map((month) => <div key={month.month} className="flex h-full flex-1 flex-col items-center justify-end gap-2"><span className="text-xs text-slate-500">{month.count}</span><div className="w-full rounded-t-md bg-orange-500" style={{height:Math.max(5,month.count/maxMonthly*70)+"%"}}/><span className="pb-2 text-center text-xs text-slate-500">{month.label}</span></div>)}</div>
+            <p className="mt-3 text-xs text-slate-500">Based on booking creation dates saved in this browser.</p>
+            <div className="mt-4"><DataTable columns={[{key:"label",label:"Month"},{key:"count",label:"Bookings"}]} rows={months}/></div>
+          </Panel>
+        </div>
+        <Panel title="Approved fleet by category" className="mt-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[...new Set(approvedCars.map((car) => car.category || "Other"))].map((category) => { const count = approvedCars.filter((car) => car.category === category).length; return <div key={category} className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-500">{category}</p><p className="mt-1 text-2xl font-semibold">{count}</p></div>; })}</div></Panel>
+      </>;
+    }
 
     return <div className="grid gap-5 md:grid-cols-2"><Panel title="Welcome"><p className="text-sm leading-6 text-slate-600">This page is ready for your Sheggar Wheels workflow. Use the navigation to continue.</p><div className="mt-4 flex flex-wrap gap-2"><ButtonLink href="/cars">Browse cars</ButtonLink><ButtonLink href="/dashboard" secondary>Dashboard</ButtonLink></div></Panel><Panel title="Your session"><p className="text-sm text-slate-500">{session.userId ? `Signed in as ${session.metadata?.name || "demo user"}` : "You are browsing as a guest."}</p></Panel></div>;
   }
@@ -658,12 +902,12 @@ export default function DemoPage({ routeKey, recordId }) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-medium text-slate-500">Taking you to sign in…</div>;
   }
   if ((!isPublicRoute && accessError) || accountSuspended) {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"><span className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Demo access</span><h1 className="mt-3 text-2xl font-semibold text-slate-950">{accountSuspended ? "Account access is suspended" : "This area needs a different role"}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{accountSuspended ? "This demo account is suspended. No demo actions are available." : accessError}</p>{requiredRole === "owner" && !accountSuspended && <button onClick={()=>{const access=requireRole("renter");if(!access.ok){setMessage(access.message);return;}const roles=[...new Set([...normalizeRoles(access.user),"renter","owner"])];const nextSession={...session,metadata:{...session.metadata,roles}};const updatedUsers=(records.users||[]).map((user)=>user.id===session.userId?{...user,roles}:user);const savedUsers=writeUsers(updatedUsers);const savedSession=writeSession(nextSession);if(savedUsers.ok&&savedSession.ok){setRecords((value)=>({...value,users:updatedUsers}));setSession(nextSession);setAccessError("");}else setMessage(savedUsers.message||savedSession.message);}} className="mt-5 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Enable owner capabilities</button>}{message&&<p className="mt-3 text-sm text-rose-700">{message}</p>}<div className="mt-5 flex gap-3"><ButtonLink href="/">Return home</ButtonLink><ButtonLink href="/signin" secondary>Switch account</ButtonLink></div><p className="mt-5 text-xs leading-5 text-slate-400">These role checks are for the front-end demo only and do not provide real security.</p></section></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"><span className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Demo access</span><h1 className="mt-3 text-2xl font-semibold text-slate-950">{accountSuspended ? "Account access is suspended" : "This area needs a different role"}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{accountSuspended ? "This demo account is suspended. No demo actions are available." : accessError}</p>{requiredRole === "owner" && !accountSuspended && <button onClick={()=>{const access=requireRole("renter");if(!access.ok){setMessage(access.message);return;}const roles=[...new Set([...normalizeRoles(access.user),"renter","owner"])];const nextSession={...session,metadata:{...session.metadata,roles}};const updatedUsers=(records.users||[]).map((user)=>user.id===session.userId?{...user,roles}:user);const savedUsers=writeUsers(updatedUsers);const savedSession=writeSession(nextSession);if(savedUsers.ok&&savedSession.ok){setRecords((value)=>({...value,users:updatedUsers}));setSession(nextSession);}else setMessage(savedUsers.message||savedSession.message);}} className="mt-5 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Enable owner capabilities</button>}{message&&<p className="mt-3 text-sm text-rose-700">{message}</p>}<div className="mt-5 flex gap-3"><ButtonLink href="/">Return home</ButtonLink><ButtonLink href="/signin" secondary>Switch account</ButtonLink></div><p className="mt-5 text-xs leading-5 text-slate-400">These role checks are for the front-end demo only and do not provide real security.</p></section></main>;
   }
 
   if (routeKey === "/cars/[id]" || routeKey === "/checkout") {
     // These focused renter flows keep the public navigation lightweight.
-    return <div className="min-h-screen bg-slate-50"><PublicHeader session={session}/><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"><PageHeading title={title} description={description}/>{renderContent()}</main></div>;
+    return <div className="min-h-screen bg-slate-50"><PublicHeader session={session}/><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"><PageHeading title={title} description={description}/>{storageRecovery && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{storageRecovery}</div>}{renderContent()}</main></div>;
   }
 
   const crumbItems = routeKey.split("/").filter(Boolean);
@@ -672,13 +916,14 @@ export default function DemoPage({ routeKey, recordId }) {
       <PublicHeader session={session}/>
       <div className="mx-auto flex max-w-[1500px]">
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-6 lg:block">
-          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{role} workspace</p>
-          <nav aria-label={`${role} navigation`} className="mt-3 space-y-1">{nav.map(([label,href])=><Link key={label} href={href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition", routeKey===href?"bg-orange-50 text-orange-700":"text-slate-600 hover:bg-slate-50 hover:text-slate-950")}><span className="w-5 text-center text-base">{label==="Overview"?"⌂":label.includes("car")||label.includes("Fleet")?"◈":label.includes("Booking")?"▤":label.includes("Earning")?"$":label.includes("Dispute")?"!":label.includes("Review")?"☆":"◦"}</span>{label}</Link>)}</nav>
-          <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white"><p className="text-sm font-semibold">Need a hand?</p><p className="mt-1 text-xs leading-5 text-slate-300">Our concierge team is here to help with your next step.</p><Link href="/bookings" className="mt-3 inline-block text-xs font-semibold text-orange-300">Visit support →</Link></div>
+          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{workspaceLabel} workspace</p>
+          <nav aria-label={`${workspaceLabel} navigation`} className="mt-3 space-y-1">{nav.map(([label,href])=><Link key={label} href={href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition", routeKey===href?"bg-orange-50 text-orange-700":"text-slate-600 hover:bg-slate-50 hover:text-slate-950")}><span className="w-5 text-center text-base">{label==="Overview"?"⌂":label.includes("car")||label.includes("Fleet")?"◈":label.includes("Booking")?"▤":label.includes("Earning")?"$":label.includes("Dispute")?"!":label.includes("Review")?"☆":"◦"}</span>{label}</Link>)}</nav>
+          {role !== "admin" && !isAdminCarsPage && <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white"><p className="text-sm font-semibold">Need a hand?</p><p className="mt-1 text-xs leading-5 text-slate-300">Our concierge team is here to help with your next step.</p><Link href="/bookings" className="mt-3 inline-block text-xs font-semibold text-orange-300">Visit support →</Link></div>}
         </aside>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mb-5 flex items-center gap-2 text-xs font-medium text-slate-400"><Link href="/" className="hover:text-orange-600">Home</Link>{crumbItems.map((part,index)=><span key={`${part}-${index}`} className="flex items-center gap-2"><span>/</span><span className={index===crumbItems.length-1?"text-slate-600":""}>{part.replaceAll("[id]",recordId||"detail").replaceAll("-"," ")}</span></span>)}</div>
           <PageHeading title={title} description={description}/>
+          {storageRecovery && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{storageRecovery}</div>}
           {role === "admin" && <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">Admin access in this project is a seeded front-end demo role. These checks do not provide real security.</div>}
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">{nav.map(([label,href])=><Link key={label} href={href} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">{label}</Link>)}</div>
           {message && !["/cars","/cars/[id]","/checkout","/signin","/signup"].includes(routeKey) && <div role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div>}
@@ -698,7 +943,7 @@ function PublicHeader({ session }) {
     signOutDemo();
     router.replace("/");
   }
-  return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8"><Link href="/" className="text-sm font-extrabold tracking-[0.16em] text-slate-950">SHEGGAR <span className="text-orange-500">WHEELS</span></Link><nav className="flex items-center gap-3 sm:gap-6"><Link href="/cars" className="text-sm font-semibold text-slate-600 hover:text-orange-600">Explore cars</Link><Link href="/signup" className="hidden text-sm font-semibold text-slate-600 hover:text-orange-600 sm:inline">Become an owner</Link>{session.userId?<><Link href={accountPath} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">My account</Link><button onClick={signOut} className="text-sm font-semibold text-slate-500 hover:text-rose-600">Sign out</button></>:<><Link href="/signin" className="text-sm font-semibold text-slate-600">Sign in</Link><Link href="/signup" className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">Join</Link></>}</nav></div></header>;
+  return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8"><Link href="/" className="text-sm font-extrabold tracking-[0.16em] text-slate-950">SHEGGAR <span className="text-orange-500">WHEELS</span></Link><nav className="flex items-center gap-3 sm:gap-6"><Link href="/cars" className="text-sm font-semibold text-slate-600 hover:text-orange-600">Explore cars</Link>{!roles.includes("admin")&&<Link href="/signup" className="hidden text-sm font-semibold text-slate-600 hover:text-orange-600 sm:inline">Become an owner</Link>}{session.userId?<><Link href={accountPath} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">{roles.includes("admin") ? "Dashboard" : "My account"}</Link><button onClick={signOut} className="text-sm font-semibold text-slate-500 hover:text-rose-600">Sign out</button></>:<><Link href="/signin" className="text-sm font-semibold text-slate-600">Sign in</Link><Link href="/signup" className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">Join</Link></>}</nav></div></header>;
 }
 
 function PageHeading({ title, description }) {
@@ -717,13 +962,27 @@ function Timeline({ items }) {
   return <div className="space-y-0">{items.map(([title,text],index)=><div key={title} className="relative flex gap-3 pb-5 last:pb-0"><div className="flex flex-col items-center"><span className={cn("z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",index===0?"bg-orange-100 text-orange-700":"bg-slate-100 text-slate-500")}>{index+1}</span>{index<items.length-1&&<span className="absolute top-7 bottom-0 w-px bg-slate-200"/>}</div><div className="pt-1"><p className="text-sm font-semibold text-slate-800">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{text}</p></div></div>)}</div>;
 }
 
+function RenterTripAlert({ bookings = [] }) { const next = bookings.filter((booking) => ["requested", "confirmed", "in_progress"].includes(booking.status)).sort((a, b) => String(a.startDate || "").localeCompare(String(b.startDate || "")))[0]; return <div className="rounded-xl border border-orange-100 bg-orange-50 p-4"><p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">Trip update</p><p className="mt-1 text-sm font-semibold text-slate-800">{next ? (next.status === "requested" ? "Awaiting owner response" : next.car + " · " + next.startDate) : "No upcoming trips"}</p><p className="mt-1 text-xs leading-5 text-slate-600">{next ? "Booking " + next.id + " · " + displayStatus(next.status) : "Your confirmed and requested bookings will appear here."}</p></div>; }
+
+function CarLocationMap({ location, latitude, longitude }) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  const hasCoordinates = Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lon) && lon >= -180 && lon <= 180 && (latitude !== null && longitude !== null && latitude !== "" && longitude !== "");
+  return <Panel title="Approximate vehicle location"><p className="text-sm text-slate-600">{location || "Location not provided"}</p>{hasCoordinates ? <CarLocationLeafletMap latitude={lat} longitude={lon} location={location}/> : <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">Map preview unavailable. The pickup area is shown above.</p>}<p className="mt-2 text-xs text-slate-400">Approximate seeded location only. Pickup instructions are shared after confirmation.</p></Panel>;
+}
+
+function ReviewAverage({ reviews = [] }) { const average = reviews.length ? (reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length).toFixed(1) : null; return <span className="text-xs text-slate-500">{average ? "Average " + average + " ★" : "No reviews yet"}</span>; }
+
 function CalendarPreview() {
   return <div className="grid grid-cols-7 gap-1 text-center text-xs">{["M","T","W","T","F","S","S",...Array.from({length:30},(_,i)=>String(i+1))].map((day,index)=><span key={`${day}-${index}`} className={cn("flex h-9 items-center justify-center rounded-lg",index<7?"font-semibold text-slate-400":Number(day)%7===0?"bg-orange-100 font-semibold text-orange-700":"text-slate-600")}>{day}</span>)}</div>;
 }
 
-function EarningsChart() {
-  const data=[42,58,48,69,61,78,58,86,72,94,76,100];
-  return <div className="flex h-48 items-end gap-2 border-b border-slate-100 px-1">{data.map((height,index)=><div key={index} className="group flex h-full flex-1 flex-col justify-end"><div className="rounded-t-md bg-gradient-to-t from-orange-500 to-amber-300 transition group-hover:from-orange-600" style={{height:`${height}%`}}/><span className="py-2 text-center text-[10px] text-slate-400">{["J","F","M","A","M","J","J","A","S","O","N","D"][index]}</span></div>)}</div>;
+function EarningsChart({ bookings = [] }) {
+  const now = new Date();
+  const months = Array.from({ length: 12 }, (_, index) => new Date(now.getFullYear(), now.getMonth() - 11 + index, 1));
+  const data = months.map((month) => bookings.filter((booking) => { const date = new Date((booking.startDate || booking.createdAt || "") + "T00:00:00"); return Number.isFinite(date.getTime()) && date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth() && ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status); }).reduce((sum, booking) => sum + Number(booking.total || 0), 0));
+  const max = Math.max(1, ...data);
+  return <div className="flex h-48 items-end gap-2 border-b border-slate-100 px-1">{data.map((height,index)=><div key={index} className="group flex h-full flex-1 flex-col justify-end"><div className="rounded-t-md bg-gradient-to-t from-orange-500 to-amber-300 transition group-hover:from-orange-600" style={{height:`${Math.max(4, (height / max) * 100)}%`}}/><span className="py-2 text-center text-[10px] text-slate-400">{months[index].toLocaleDateString("en", { month: "short" })}</span></div>)}</div>;
 }
 
 function EmptyState({ title, text }) {

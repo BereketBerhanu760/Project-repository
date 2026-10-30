@@ -23,16 +23,39 @@ const COLLECTION_DEFAULT = () => [];
 const SESSION_DEFAULT = () => ({ userId: null, metadata: {} });
 const CHECKOUT_DEFAULT = () => ({ selectedDates: null, summary: null });
 
-const collectionValidator = (value) =>
-  Array.isArray(value) && value.every(isPlainObject);
+const nonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+const validIdRecord = (value) => isPlainObject(value) && nonEmptyString(value.id);
+const isoDate = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+const finiteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const validBookingLocation = (value) => value === undefined || value === null || (
+  isPlainObject(value) &&
+  nonEmptyString(value.label) &&
+  ((value.latitude === null && value.longitude === null) || (
+    finiteNumber(value.latitude) && value.latitude >= -90 && value.latitude <= 90 &&
+    finiteNumber(value.longitude) && value.longitude >= -180 && value.longitude <= 180
+  ))
+);
+const statusIs = (value, allowed) =>
+  typeof value === "string" && allowed.includes(value.trim().toLowerCase().replaceAll(" ", "_"));
+const collectionValidator = (recordValidator) =>
+  (value) => Array.isArray(value) && value.every(recordValidator);
+
+const uniqueUserEmails = (users) => {
+  const emails = users.map((user) => user.email.toLowerCase());
+  return new Set(emails).size === emails.length;
+};
 
 const validators = {
-  users: collectionValidator,
-  cars: collectionValidator,
-  bookings: collectionValidator,
-  reviews: collectionValidator,
-  disputes: collectionValidator,
-  announcements: collectionValidator,
+  users: (value) => collectionValidator((user) => validIdRecord(user) && nonEmptyString(user.name) && nonEmptyString(user.email) && Array.isArray(user.roles) && user.roles.every(nonEmptyString) && statusIs(user.status, ["active", "suspended"]) && nonEmptyString(user.createdAt))(value) && uniqueUserEmails(value),
+  cars: collectionValidator((car) => validIdRecord(car) && nonEmptyString(car.ownerId) && nonEmptyString(car.make) && nonEmptyString(car.model) && nonEmptyString(car.name) && finiteNumber(car.pricePerDay) && car.pricePerDay > 0 && Array.isArray(car.photos) && car.photos.every(nonEmptyString) && statusIs(car.status, ["draft", "pending_review", "pending", "approved", "rejected", "inactive", "active"]) && Array.isArray(car.unavailableDates) && nonEmptyString(car.createdAt)),
+  bookings: collectionValidator((booking) => validIdRecord(booking) && nonEmptyString(booking.carId) && nonEmptyString(booking.renterId) && nonEmptyString(booking.ownerId) && isoDate(booking.startDate) && isoDate(booking.endDate) && booking.endDate > booking.startDate && finiteNumber(booking.days) && booking.days > 0 && finiteNumber(booking.pricePerDay) && booking.pricePerDay > 0 && finiteNumber(booking.subtotal) && finiteNumber(booking.serviceFee) && finiteNumber(booking.total) && nonEmptyString(booking.paymentStatus) && validBookingLocation(booking.pickupLocation) && validBookingLocation(booking.dropoffLocation) && statusIs(booking.status, ["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"]) && nonEmptyString(booking.createdAt) && nonEmptyString(booking.updatedAt)),
+  reviews: collectionValidator((review) => validIdRecord(review) && nonEmptyString(review.bookingId) && nonEmptyString(review.carId) && nonEmptyString(review.renterId) && nonEmptyString(review.ownerId) && finiteNumber(review.rating) && review.rating >= 1 && review.rating <= 5 && nonEmptyString(review.comment) && nonEmptyString(review.createdAt)),
+  disputes: collectionValidator((dispute) => validIdRecord(dispute) && nonEmptyString(dispute.bookingId) && nonEmptyString(dispute.reason) && nonEmptyString(dispute.description) && statusIs(dispute.status, ["open", "resolved"]) && nonEmptyString(dispute.createdAt)),
+  announcements: collectionValidator((announcement) => validIdRecord(announcement) && nonEmptyString(announcement.title) && nonEmptyString(announcement.message) && typeof announcement.active === "boolean" && statusIs(announcement.status, ["published", "inactive"]) && nonEmptyString(announcement.createdAt) && nonEmptyString(announcement.createdBy)),
   session: (value) =>
     isPlainObject(value) &&
     (value.userId === null || typeof value.userId === "string") &&
@@ -208,6 +231,14 @@ export const clearCars = () => clear("cars");
 export const readBookings = () => read("bookings");
 export const writeBookings = (value) => write("bookings", value);
 export const clearBookings = () => clear("bookings");
+export function hasStoredBookings() {
+  try {
+    const storage = getBrowserStorage("localStorage");
+    return Boolean(storage && storage.getItem(STORAGE_KEYS.bookings) !== null);
+  } catch {
+    return false;
+  }
+}
 
 export const readReviews = () => read("reviews");
 export const writeReviews = (value) => write("reviews", value);

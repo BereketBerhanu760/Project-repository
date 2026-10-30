@@ -8,19 +8,29 @@ export function safeReturnPath(value) {
 
 export function getCurrentSession() {
   const storedSession = readSession().data;
-  if (!storedSession.userId) return { session: { userId: null, metadata: {} }, user: null };
+  if (!storedSession.userId) 
+    return { session: { userId: null, metadata: {} }, user: null };
+
   const user = readUsers().data.find((record) => record.id === storedSession.userId) || null;
+
   if (!user) return { session: { userId: null, metadata: {} }, user: null };
+
   const roles = [...new Set((user.roles || (user.role ? [user.role] : [])).map((role) => String(role).toLowerCase()))];
+  
   if (roles.includes("owner") && !roles.includes("renter")) roles.push("renter");
   return { session: { userId: user.id, metadata: { name: user.name || "Demo user", roles } }, user };
 }
 
 export function signInAsDemo(userId) {
   const user = readUsers().data.find((record) => record.id === userId);
+  
   if (!user) return { ok: false, message: "Demo account was not found." };
-  if (String(user.status).toLowerCase() === "suspended") return { ok: false, message: "This demo account is suspended. Contact an administrator to restore access." };
+  
+  if (String(user.status).toLowerCase() === "suspended") 
+    return { ok: false, message: "This demo account is suspended. Contact an administrator to restore access." };
+
   const roles = [...new Set((user.roles || (user.role ? [user.role] : [])).map((role) => String(role).toLowerCase()))];
+  
   if (roles.includes("owner") && !roles.includes("renter")) roles.push("renter");
   return writeSession({ userId: user.id, metadata: { name: user.name || "Demo user", roles } });
 }

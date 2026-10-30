@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Sheggar Wheels
 
-## Getting Started
+A frontend capstone demo for browsing premium rental cars and simulating renter, owner, and admin workflows. The application uses Next.js App Router and browser storage; it has no backend, real payment processing, or production authentication.
 
-First, run the development server:
+## Run locally
+
+Requirements: Node.js and npm.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Other available scripts:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- `npm run lint` checks the project with ESLint.
+- `npm test` runs the existing Node test suite.
+- `npm run build` creates a production build.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Demo accounts
 
-## Learn More
+Choose the seeded account in the sign-in screen:
 
-To learn more about Next.js, take a look at the following resources:
+- Renter: `renter@sheggarwheels.demo`
+- Owner: `owner@sheggarwheels.demo`
+- Admin: `admin@sheggarwheels.demo`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+These are simulated identities. Do not use real passwords or personal information. Admin role selection is restricted to the seeded demo account.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Main areas
 
-## Deploy on Vercel
+- Public: landing page, car catalogue, vehicle detail, sign-in, and sign-up.
+- Renter: dashboard, bookings, receipt, simulated trip route, review form, and checkout.
+- Owner: dashboard, fleet, listing form, availability, bookings, earnings, reviews, and disputes.
+- Admin: dashboard, listing moderation, user management, disputes, reports, and announcements. The separate admin bookings page is intentionally omitted.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The catalogue supports text search, category and price filters, seats, transmission, neighbourhood, date availability, sorting, pagination, and shareable URL filters. Car photos use local files under `public/images`; detail pages include an approximate OpenStreetMap embed when coordinates are available. Admin reports include an adjustable, illustrative commission estimate; the project does not collect platform fees.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Screenshots
+
+Add current screenshots of the public catalogue, renter flow, owner workspace, and admin reports before portfolio submission.
+
+## Data and safety
+
+Car seeds live in `src/lib/seed-cars.js`; demo account, booking, review, dispute, and announcement seeds are in `src/components/demo-page.jsx`. User changes are stored in browser `localStorage`; temporary session and checkout state use `sessionStorage`. Clearing site data resets this browser’s demo records. Storage parsing includes safe fallbacks, but local browser data is editable and is not a security boundary.
+
+Checkout and trip tracking are simulations only. The UI never requests payment credentials, and the route preview does not use GPS. Review [AUTH.md](AUTH.md), [DATA.md](DATA.md), [BOUNDARY.md](BOUNDARY.md), and [STRATEGY.md](STRATEGY.md) for implementation details and constraints.
+
+## Deployment
+
+The project is not deployed by this repository workflow. Add the production URL after deployment, then verify the deployed app and browser-storage behavior in a fresh browser session.
