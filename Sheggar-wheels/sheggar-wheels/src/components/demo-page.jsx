@@ -28,6 +28,29 @@ import demoCars from "@/lib/seed-cars";
 import { formatDate, formatRelativeTime, formatETB } from "@/lib/format";
 import { getMonthlyCarStats } from "@/lib/metrics";
 import { canTransitionBooking, hasActiveBookingOverlap } from "@/lib/booking-workflows";
+import { cn } from "@/components/component-utils";
+import { displayStatus, normalizeRoles } from "@/components/demo-page-utils";
+import ButtonLink from "@/components/button-link";
+import ActionButton from "@/components/action-button";
+import Metric from "@/components/metric";
+import Status from "@/components/status";
+import Panel from "@/components/panel";
+import DataTable from "@/components/data-table";
+import Field from "@/components/field";
+import FormCard from "@/components/form-card";
+import CarCard from "@/components/car-card";
+import PublicHeader from "@/components/public-header";
+import PageHeading from "@/components/page-heading";
+import QuickAction from "@/components/quick-action";
+import Info from "@/components/info";
+import Timeline from "@/components/timeline";
+import RenterTripAlert from "@/components/renter-trip-alert";
+import CarLocationMap from "@/components/car-location-map";
+import ReviewAverage from "@/components/review-average";
+import CalendarPreview from "@/components/calendar-preview";
+import EarningsChart from "@/components/earnings-chart";
+import EmptyState from "@/components/empty-state";
+import DataLoadingSkeleton from "@/components/data-loading-skeleton";
 
 const CarLocationLeafletMap = dynamic(() => import("@/components/car-location-leaflet-map"), {
   ssr: false,
@@ -48,19 +71,17 @@ function normalizeBookingStatus(value) {
   return ({ active: "in_progress", pending: "requested" })[status] || status;
 }
 
-function displayStatus(value) {
-  return String(value || "pending").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
+
 const demoBookings = [
-  { id: "SW-24018", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-28", endDate: "2026-10-30", days: 2, pricePerDay: 285, subtotal: 570, serviceFee: 35, total: 605, paymentStatus: "Mock unpaid", status: "requested", createdAt: "2026-10-20T10:00:00.000Z", updatedAt: "2026-10-20T10:00:00.000Z" },
-  { id: "SW-24017", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 190, subtotal: 380, serviceFee: 35, total: 415, paymentStatus: "Mock held", status: "confirmed", createdAt: "2026-10-18T10:00:00.000Z", updatedAt: "2026-10-19T10:00:00.000Z" },
-  { id: "SW-24014", carId: "car-porsche-911", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-27", endDate: "2026-10-29", days: 2, pricePerDay: 310, subtotal: 620, serviceFee: 35, total: 655, paymentStatus: "Mock held", status: "confirmed", createdAt: "2026-10-17T10:00:00.000Z", updatedAt: "2026-10-18T10:00:00.000Z" },
-  { id: "SW-24016", carId: "car-mercedes-s", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 220, subtotal: 440, serviceFee: 35, total: 475, paymentStatus: "Mock held", status: "disputed", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-24T08:00:00.000Z" },
-  { id: "SW-24015", carId: "car-bmw-5", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 165, subtotal: 330, serviceFee: 35, total: 365, paymentStatus: "Mock held", status: "in_progress", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-24T08:00:00.000Z" },
-  { id: "SW-24011", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-18", endDate: "2026-10-20", days: 2, pricePerDay: 285, subtotal: 570, serviceFee: 35, total: 605, paymentStatus: "Mock paid", status: "reviewed", createdAt: "2026-10-10T10:00:00.000Z", updatedAt: "2026-10-21T09:00:00.000Z" },
-  { id: "SW-24008", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-02", endDate: "2026-10-04", days: 2, pricePerDay: 190, subtotal: 380, serviceFee: 35, total: 415, paymentStatus: "Mock paid", status: "completed", createdAt: "2026-09-28T10:00:00.000Z", updatedAt: "2026-10-04T10:00:00.000Z" },
-  { id: "SW-24009", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-12", endDate: "2026-10-14", days: 2, pricePerDay: 190, subtotal: 380, serviceFee: 35, total: 415, paymentStatus: "Mock refunded", status: "cancelled", createdAt: "2026-10-05T10:00:00.000Z", updatedAt: "2026-10-07T10:00:00.000Z" },
-  { id: "SW-24007", carId: "car-mercedes-s", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-09-05", endDate: "2026-09-07", days: 2, pricePerDay: 220, subtotal: 440, serviceFee: 35, total: 475, paymentStatus: "Mock unpaid", status: "declined", createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" },
+  { id: "SW-24018", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-28", endDate: "2026-10-30", days: 2, pricePerDay: 28500, subtotal: 57000, serviceFee: 3500, total: 60500, paymentStatus: "Mock unpaid", status: "requested", createdAt: "2026-10-20T10:00:00.000Z", updatedAt: "2026-10-20T10:00:00.000Z" },
+  { id: "SW-24017", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 19000, subtotal: 38000, serviceFee: 3500, total: 41500, paymentStatus: "Mock held", status: "confirmed", createdAt: "2026-10-18T10:00:00.000Z", updatedAt: "2026-10-19T10:00:00.000Z" },
+  { id: "SW-24014", carId: "car-porsche-911", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-27", endDate: "2026-10-29", days: 2, pricePerDay: 31000, subtotal: 62000, serviceFee: 3500, total: 65500, paymentStatus: "Mock held", status: "confirmed", createdAt: "2026-10-17T10:00:00.000Z", updatedAt: "2026-10-18T10:00:00.000Z" },
+  { id: "SW-24016", carId: "car-mercedes-s", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 22000, subtotal: 44000, serviceFee: 3500, total: 47500, paymentStatus: "Mock held", status: "disputed", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-24T08:00:00.000Z" },
+  { id: "SW-24015", carId: "car-bmw-5", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-24", endDate: "2026-10-26", days: 2, pricePerDay: 16500, subtotal: 33000, serviceFee: 3500, total: 36500, paymentStatus: "Mock held", status: "in_progress", createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-24T08:00:00.000Z" },
+  { id: "SW-24011", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-18", endDate: "2026-10-20", days: 2, pricePerDay: 28500, subtotal: 57000, serviceFee: 3500, total: 60500, paymentStatus: "Mock paid", status: "reviewed", createdAt: "2026-10-10T10:00:00.000Z", updatedAt: "2026-10-21T09:00:00.000Z" },
+  { id: "SW-24008", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-02", endDate: "2026-10-04", days: 2, pricePerDay: 19000, subtotal: 38000, serviceFee: 3500, total: 41500, paymentStatus: "Mock paid", status: "completed", createdAt: "2026-09-28T10:00:00.000Z", updatedAt: "2026-10-04T10:00:00.000Z" },
+  { id: "SW-24009", carId: "car-range-rover", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-10-12", endDate: "2026-10-14", days: 2, pricePerDay: 19000, subtotal: 38000, serviceFee: 3500, total: 41500, paymentStatus: "Mock refunded", status: "cancelled", createdAt: "2026-10-05T10:00:00.000Z", updatedAt: "2026-10-07T10:00:00.000Z" },
+  { id: "SW-24007", carId: "car-mercedes-s", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, startDate: "2026-09-05", endDate: "2026-09-07", days: 2, pricePerDay: 22000, subtotal: 44000, serviceFee: 3500, total: 47500, paymentStatus: "Mock unpaid", status: "declined", createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z" },
 ];
 
 const demoReviews = [{ id: "review-demo-01", bookingId: "SW-24011", carId: "car-audi-r8", renterId: DEMO_RENTER.id, ownerId: DEMO_OWNER.id, renter: DEMO_RENTER.name, car: "Audi R8 V10", rating: 5, comment: "A seamless pickup and a beautiful drive.", ownerReply: "Thank you for taking such good care of the car.", createdAt: "2026-10-21T09:00:00.000Z" }];
@@ -133,16 +154,11 @@ const storeMethods = {
 };
 
 const fallbackRows = { cars: demoCars, bookings: demoBookings, users: [], reviews: [], disputes: [], announcements: [] };
-const cn = (...values) => values.filter(Boolean).join(" ");
+const LEGACY_PRICE_SCALE = 100;
 const makeId = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`}`;
 const isoNow = () => new Date().toISOString();
 
-function normalizeRoles(user) {
-  const source = user?.roles || (user?.role ? [user.role] : []);
-  const roles = source.map((role) => String(role).toLowerCase());
-  if (roles.includes("owner") && !roles.includes("renter")) roles.push("renter");
-  return [...new Set(roles)];
-}
+
 
 function safeInternalDestination(value, roles = []) {
   const fallback = roles.includes("admin") ? "/admin" : roles.includes("owner") ? "/owner" : "/dashboard";
@@ -173,106 +189,23 @@ function downloadCsv(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-function ButtonLink({ href, children, secondary = false }) {
-  return (
-    <Link href={href} className={cn("inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition", secondary ? "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" : "bg-slate-950 text-white hover:bg-orange-600")}>
-      {children}
-    </Link>
-  );
-}
 
-function ActionButton({ children, tone = "neutral", className, ...props }) {
-  const tones = {
-    neutral: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-    positive: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-    danger: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
-  };
-  return <button {...props} className={cn("inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500", tones[tone], className)}>{children}</button>;
-}
 
-function Metric({ label, value, note, icon = "↗" }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between text-sm text-slate-500"><span>{label}</span><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-lg text-orange-600">{icon}</span></div>
-      <div className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
-      {note && <div className="mt-1 text-sm text-slate-500">{note}</div>}
-    </div>
-  );
-}
 
-function Status({ children }) {
-  const status = String(children || "pending");
-  const style = /active|available|confirmed|approved|completed|reviewed|resolved|published|in_progress/i.test(status)
-    ? "bg-emerald-50 text-emerald-700"
-    : /reject|cancel|suspend|urgent|open/i.test(status)
-      ? "bg-rose-50 text-rose-700"
-      : "bg-amber-50 text-amber-700";
-  return <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", style)}>{displayStatus(status)}</span>;
-}
 
-function Panel({ title, action, children, className }) {
-  return (
-    <section className={cn("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}>
-      {(title || action) && <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4"><h2 className="font-semibold text-slate-900">{title}</h2>{action}</div>}
-      <div className="p-5">{children}</div>
-    </section>
-  );
-}
 
-function DataTable({ columns, rows, empty = "Nothing here yet." }) {
-  if (!rows.length) return <p className="py-7 text-sm text-slate-500">{empty}</p>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-left text-sm">
-        <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">{columns.map((column, index) => <th className="px-3 py-3 font-semibold" key={`${column.key}-${index}`}>{column.label}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr className="border-b border-slate-50 last:border-0" key={row.id || row.email || index}>{columns.map((column, columnIndex) => <td className="px-3 py-4 text-slate-700" key={`${column.key}-${columnIndex}`}>{column.render ? column.render(row[column.key], row) : row[column.key] || "—"}</td>)}</tr>)}</tbody>
-      </table>
-    </div>
-  );
-}
 
-function Field({ label, name, type = "text", required = false, placeholder, defaultValue, options, min }) {
-  const base = "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100";
-  return (
-    <label className="block text-sm font-medium text-slate-700">
-      {label}
-      {options ? <select className={base} name={name} defaultValue={defaultValue || options[0]?.value} required={required}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : type === "textarea" ? <textarea className={cn(base, "min-h-28 resize-y")} name={name} placeholder={placeholder} required={required} defaultValue={defaultValue} /> : <input className={base} name={name} type={type} placeholder={placeholder} required={required} defaultValue={defaultValue} min={min} />}
-    </label>
-  );
-}
 
-function FormCard({ title, description, fields, onSubmit, submitLabel = "Save changes", message, children }) {
-  return (
-    <Panel title={title}>
-      {description && <p className="mb-5 text-sm leading-6 text-slate-500">{description}</p>}
-      <form action={onSubmit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">{fields?.map((field) => <div className={field.full ? "sm:col-span-2" : ""} key={field.name}><Field {...field} /></div>)}</div>
-        {children}
-        {message && <p role="status" className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-orange-800">{message}</p>}
-        <button className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" type="submit">{submitLabel}</button>
-      </form>
-    </Panel>
-  );
-}
 
-function CarCard({ car, reviews = [] }) {
-  const carReviews = reviews.filter((review) => review.carId === car.id);
-  const rating = carReviews.length ? (carReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / carReviews.length).toFixed(1) : null;
-  return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className={cn("relative flex h-44 items-end justify-between overflow-hidden bg-gradient-to-br to-slate-200 p-5", car.accent || "from-orange-400/30")}>
-        {car.photos?.[0] && <Image src={car.photos[0]} alt={car.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
-        <span className="relative z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category || "Premium"}</span>
-        <span className="relative z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600">{rating ? `★ ${rating}` : "New listing"}</span>
-      </div>
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-slate-950">{car.name || "Premium vehicle"}</h3><p className="mt-1 text-xs text-slate-500">{car.location || "Addis Ababa"}</p></div><p className="shrink-0 text-right"><strong className="text-lg text-slate-950">{formatETB(car.pricePerDay ?? car.price ?? 150)}</strong><span className="block text-xs text-slate-500">per day</span></p></div>
-        <div className="mt-4 flex gap-4 border-t border-slate-100 pt-4 text-xs text-slate-500"><span>{car.seats || 5} seats</span><span>{car.transmission || "Automatic"}</span><span>{car.fuel || "Premium"}</span></div>
-        <ButtonLink href={`/cars/${car.id || "car-audi-r8"}`}>View vehicle</ButtonLink>
-      </div>
-    </article>
-  );
-}
+
+
+
+
+
+
+
+
+
 
 export default function DemoPage({ routeKey, recordId }) {
   const router = useRouter();
@@ -292,6 +225,10 @@ export default function DemoPage({ routeKey, recordId }) {
   const [commissionRate, setCommissionRate] = useState(10);
   const [draft, setDraft] = useState({ selectedDates: null, summary: null });
   const [locationTarget, setLocationTarget] = useState("pickupLocation");
+  const [issueRequest, setIssueRequest] = useState(null);
+  const [issueDescription, setIssueDescription] = useState("");
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [returnTo, setReturnTo] = useState("");
 
   useEffect(() => {
@@ -312,9 +249,31 @@ export default function DemoPage({ routeKey, recordId }) {
       for (const seed of seeds) if (!existing.has(seed.id) && shouldSeed) existing.set(seed.id, seed);
       loaded[name] = [...existing.values()];
     }
-    const seededCarPhotos = new Map(demoCars.map((car) => [car.id, car.photos]));
-    loaded.cars = loaded.cars.map((car) => seededCarPhotos.has(car.id) ? { ...car, photos: seededCarPhotos.get(car.id) } : car);
+    const seededCars = new Map(demoCars.map((car) => [car.id, car]));
+    loaded.cars = loaded.cars.map((car) => {
+      const seed = seededCars.get(car.id);
+      if (!seed) return car;
+      const legacySeedPrice = seed.pricePerDay / LEGACY_PRICE_SCALE;
+      const hasLegacySeedPrice = Number(car.pricePerDay ?? car.price) === legacySeedPrice;
+      return {
+        ...car,
+        ...(hasLegacySeedPrice ? { price: seed.price, pricePerDay: seed.pricePerDay } : {}),
+        photos: seed.photos,
+      };
+    });
     loaded.cars = loaded.cars.map((car) => ({ ...car, pricePerDay: Number(car.pricePerDay ?? car.price ?? 0), photos: Array.isArray(car.photos) ? car.photos : [], unavailableDates: Array.isArray(car.unavailableDates) ? car.unavailableDates : [], createdAt: car.createdAt || isoNow() }));
+    const seededBookings = new Map(demoBookings.map((booking) => [booking.id, booking]));
+    loaded.bookings = loaded.bookings.map((booking) => {
+      const seed = seededBookings.get(booking.id);
+      if (!seed || Number(booking.pricePerDay) !== seed.pricePerDay / LEGACY_PRICE_SCALE) return booking;
+      return {
+        ...booking,
+        pricePerDay: seed.pricePerDay,
+        subtotal: seed.subtotal,
+        serviceFee: seed.serviceFee,
+        total: seed.total,
+      };
+    });
     loaded.bookings = loaded.bookings.map((booking) => {
       const car = loaded.cars.find((item) => item.id === booking.carId);
       const renter = loaded.users.find((item) => item.id === booking.renterId);
@@ -415,7 +374,7 @@ export default function DemoPage({ routeKey, recordId }) {
     }
     if (!accessError && !normalizeRoles(currentUser).includes(requiredRole)) {
       accessError = requiredRole === "owner"
-        ? "This account does not have owner capabilities yet. Enable owner mode to manage a fleet."
+        ? "This account is not authorized to access owner pages."
         : requiredRole === "admin"
           ? "Admin pages are available only through the seeded demo admin account."
           : "Sign in with a renter account to view this page.";
@@ -586,9 +545,31 @@ export default function DemoPage({ routeKey, recordId }) {
   function raiseBookingIssue(id, sourceRows = []) {
     const booking = allBookings.find((item) => item.id === id);
     if (!booking || booking.status !== "in_progress") return;
+    setIssueRequest({ bookingId: id, sourceRows });
+    setIssueDescription("");
+  }
+
+  function submitBookingIssue(event) {
+    event.preventDefault();
+    const booking = allBookings.find((item) => item.id === issueRequest?.bookingId);
+    const description = issueDescription.trim();
+    if (!booking || booking.status !== "in_progress") {
+      setMessage("This booking is no longer available for an issue report.");
+      setIssueRequest(null);
+      return;
+    }
+    if (!description) {
+      setMessage("Describe the rental issue before submitting.");
+      return;
+    }
     const now = isoNow();
-    if (!saveRecord("disputes", { id: makeId("dispute"), bookingId: booking.id, carId: booking.carId, renterId: booking.renterId, ownerId: booking.ownerId, reason: "Rental issue", description: "An issue was reported during the simulated rental.", status: "open", resolutionNotes: "", resolvedBy: null, createdAt: now, resolvedAt: null })) return;
-    transitionBooking(id, "disputed", sourceRows);
+    const reporterRole = routeKey.startsWith("/owner") ? "owner" : "renter";
+    const saved = saveRecord("disputes", { id: makeId("dispute"), bookingId: booking.id, carId: booking.carId, renterId: booking.renterId, ownerId: booking.ownerId, reporterId: session.userId, reporterRole, reason: "Rental issue", description, status: "open", resolutionNotes: "", resolvedBy: null, createdAt: now, resolvedAt: null });
+    if (!saved) return;
+    if (transitionBooking(booking.id, "disputed", issueRequest.sourceRows)) {
+      setIssueRequest(null);
+      setIssueDescription("");
+    }
   }
 
   function formAction(handler) {
@@ -607,9 +588,9 @@ export default function DemoPage({ routeKey, recordId }) {
     if (routeKey === "/cars") {
       return <>
         <div className="mb-5 rounded-2xl bg-slate-950 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><label className="text-xs font-medium text-slate-300">Make, model, or location<input value={search} onChange={(event) => {setSearch(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" placeholder="Try Audi, Bole, or SUV"/></label><label className="text-xs font-medium text-slate-300">Pick-up<input value={pickupDate} onChange={(event)=>{setPickupDate(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" type="date"/></label><label className="text-xs font-medium text-slate-300">Return<input value={returnDate} onChange={(event)=>{setReturnDate(event.target.value);setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900" type="date" min={pickupDate || undefined}/></label><label className="text-xs font-medium text-slate-300">Transmission<select value={catalogueFilters.transmission} onChange={(event)=>{setCatalogueFilters((current)=>({...current,transmission:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"><option>All</option><option>Automatic</option><option>Manual</option></select></label><label className="text-xs font-medium text-slate-300">Neighbourhood<select value={catalogueFilters.neighbourhood} onChange={(event)=>{setCatalogueFilters((current)=>({...current,neighbourhood:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"><option>All</option>{[...new Set(allCars.map((car)=>car.neighbourhood).filter(Boolean))].sort().map((place)=><option key={place}>{place}</option>)}</select></label><label className="text-xs font-medium text-slate-300">Minimum price<input type="number" min="0" value={catalogueFilters.minPrice} onChange={(event)=>{setCatalogueFilters((current)=>({...current,minPrice:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label><label className="text-xs font-medium text-slate-300">Maximum price<input type="number" min="0" value={catalogueFilters.maxPrice} onChange={(event)=>{setCatalogueFilters((current)=>({...current,maxPrice:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label><label className="text-xs font-medium text-slate-300">Minimum seats<input type="number" min="1" value={catalogueFilters.minSeats} onChange={(event)=>{setCatalogueFilters((current)=>({...current,minSeats:event.target.value}));setCataloguePage(1);}} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white px-3 py-3 text-sm text-slate-900"/></label></div></div>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-500">{visibleCars.length} matching vehicles</p><div className="flex gap-2"><select aria-label="Filter by category" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={filter} onChange={(event) => {setFilter(event.target.value);setCataloguePage(1);}}><option>All</option><option>Exotic</option><option>Luxury</option><option>Premium SUV</option><option>SUV</option><option>Sedan</option></select><select aria-label="Sort vehicles" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={sort} onChange={(event) => {setSort(event.target.value);setCataloguePage(1);}}><option>Recommended</option><option>Price: low to high</option><option>Price: high to low</option><option>Newest</option></select></div></div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-500">{authReady ? `${visibleCars.length} matching vehicles` : "Loading vehicles…"}</p><div className="flex gap-2"><select aria-label="Filter by category" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={filter} onChange={(event) => {setFilter(event.target.value);setCataloguePage(1);}}><option>All</option><option>Exotic</option><option>Luxury</option><option>Premium SUV</option><option>SUV</option><option>Sedan</option></select><select aria-label="Sort vehicles" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={sort} onChange={(event) => {setSort(event.target.value);setCataloguePage(1);}}><option>Recommended</option><option>Price: low to high</option><option>Price: high to low</option><option>Newest</option></select></div></div>
         {message && <p className="mb-4 text-sm text-emerald-700">{message}</p>}
-        {pageCars.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{pageCars.map((car) => <CarCard car={car} reviews={reviewRows} key={car.id}/>)}</div> : <EmptyState title="No cars match your search" text="Try another location, date range, or set of filters."/>}
+        {!authReady ? <DataLoadingSkeleton variant="catalogue"/> : pageCars.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{pageCars.map((car) => <CarCard car={car} reviews={reviewRows} key={car.id}/>)}</div> : <EmptyState title="No cars match your search" text="Try another location, date range, or set of filters."/>}
         {visibleCars.length > cataloguePageSize && <nav aria-label="Car catalogue pages" className="mt-6 flex items-center justify-center gap-2"><button disabled={currentCataloguePage===1} onClick={()=>setCataloguePage((page)=>Math.max(1,page-1))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-40">Previous</button>{Array.from({length:pageCount},(_,index)=>index+1).map((page)=><button key={page} aria-current={currentCataloguePage===page?"page":undefined} onClick={()=>setCataloguePage(page)} className={cn("rounded-lg border px-3 py-2 text-sm",currentCataloguePage===page?"border-orange-500 bg-orange-50 text-orange-700":"border-slate-200")}>{page}</button>)}<button disabled={currentCataloguePage===pageCount} onClick={()=>setCataloguePage((page)=>Math.min(pageCount,page+1))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-40">Next</button></nav>}
       </>;
     }
@@ -618,7 +599,7 @@ export default function DemoPage({ routeKey, recordId }) {
       const car = allCars.find((item) => item.id === recordId && ["approved","active"].includes(String(item.status || "").toLowerCase())) || demoCars[0];
       const carReviews = reviewRows.filter((review) => review.carId === car.id);
       const carRating = carReviews.length ? (carReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / carReviews.length).toFixed(1) : null;
-      return <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]"><div className="space-y-5"><div className="relative flex h-72 items-end overflow-hidden rounded-3xl bg-gradient-to-br from-orange-200 via-slate-300 to-slate-700 p-7">{car.photos?.[0]&&<Image src={car.photos[0]} alt={car.name} fill sizes="(max-width: 1280px) 100vw, 60vw" className="object-cover" onError={(event)=>{event.currentTarget.style.display="none";}}/>}<span className="relative rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category}</span></div><Panel title="About this vehicle"><p className="leading-7 text-slate-600">{car.description || `Enjoy a carefully maintained ${car.name} with a smooth drive, flexible pickup, and attentive local support.`}</p><div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm"><div className="rounded-xl bg-slate-50 p-3"><strong>{car.seats || 2}</strong><span className="mt-1 block text-slate-500">Seats</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{car.transmission || "Auto"}</strong><span className="mt-1 block text-slate-500">Transmission</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{carRating ? carRating + " ★" : "—"}</strong><span className="mt-1 block text-slate-500">{carRating ? "Rating" : "No reviews yet"}</span></div></div></Panel><CarLocationMap location={car.location} latitude={car.latitude} longitude={car.longitude}/></div><Panel title="Reserve this car"><div className="mb-4"><strong className="text-3xl">{formatETB(car.pricePerDay ?? car.price)}</strong><span className="text-slate-500"> / day</span></div><form action={(formData) => { const values = Object.fromEntries(formData.entries()); const checkout = { selectedDates: { startDate: values.startDate, endDate: values.endDate }, summary: { carId: car.id, ownerId: car.ownerId, car: car.name, price: car.price } }; const result = writeCheckoutDraft(checkout); if (!result.ok) { setMessage(result.message); return; } setDraft(checkout); router.push("/checkout"); }} className="space-y-4"><Field label="Pick-up date" name="startDate" type="date" required/><Field label="Return date" name="endDate" type="date" required/><p className="text-xs leading-5 text-slate-500">No payment details are collected in this demo.</p>{message && <p role="status" className="text-sm text-emerald-700">{message}</p>}<button className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Continue to checkout</button></form></Panel></div>;
+      return <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]"><div className="space-y-5"><div className="relative flex h-72 items-end overflow-hidden rounded-3xl bg-gradient-to-br from-orange-200 via-slate-300 to-slate-700 p-7">{car.photos?.[0]&&<Image src={car.photos[0]} alt={car.name} fill sizes="(max-width: 1280px) 100vw, 60vw" className="object-cover" onError={(event)=>{event.currentTarget.style.display="none";}}/>}<span className="relative rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700">{car.category}</span></div><Panel title="About this vehicle"><p className="leading-7 text-slate-600">{car.description || `Enjoy a carefully maintained ${car.name} with a smooth drive, flexible pickup, and attentive local support.`}</p><div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm"><div className="rounded-xl bg-slate-50 p-3"><strong>{car.seats || 2}</strong><span className="mt-1 block text-slate-500">Seats</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{car.transmission || "Auto"}</strong><span className="mt-1 block text-slate-500">Transmission</span></div><div className="rounded-xl bg-slate-50 p-3"><strong>{carRating ? carRating + " ★" : "—"}</strong><span className="mt-1 block text-slate-500">{carRating ? "Rating" : "No reviews yet"}</span></div></div></Panel><CarLocationMap location={car.location} latitude={car.latitude} longitude={car.longitude}/></div><Panel title="Reserve this car"><div className="mb-4"><strong className="text-3xl">{formatETB(car.pricePerDay ?? car.price)}</strong><span className="text-slate-500"> / day</span></div><form action={(formData) => { const values = Object.fromEntries(formData.entries()); const checkout = { selectedDates: { startDate: values.startDate, endDate: values.endDate }, summary: { carId: car.id, ownerId: car.ownerId, car: car.name, price: car.pricePerDay ?? car.price } }; const result = writeCheckoutDraft(checkout); if (!result.ok) { setMessage(result.message); return; } setDraft(checkout); router.push("/checkout"); }} className="space-y-4"><Field label="Pick-up date" name="startDate" type="date" required/><Field label="Return date" name="endDate" type="date" required/><p className="text-xs leading-5 text-slate-500">No payment details are collected in this demo.</p>{message && <p role="status" className="text-sm text-emerald-700">{message}</p>}<button className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Continue to checkout</button></form></Panel></div>;
     }
 
     if (routeKey === "/signin" || routeKey === "/signup") {
@@ -631,7 +612,7 @@ export default function DemoPage({ routeKey, recordId }) {
         setSession(adminSession);
         router.replace(safeInternalDestination(nextFromUrl(), ["admin"]));
       };
-      return <div className="mx-auto grid max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:grid-cols-2"><div className="hidden flex-col justify-between bg-slate-950 p-8 text-white md:flex"><span className="text-sm font-semibold tracking-[0.18em]">SHEGGAR WHEELS</span><div><p className="text-3xl font-semibold leading-tight">Your next great drive starts here.</p><p className="mt-3 text-sm leading-6 text-slate-300">A more personal way to discover and book premium cars.</p></div><span className="text-xs text-slate-400">Private fleet · Personal service</span></div><div className="p-6 sm:p-9"><h2 className="text-2xl font-semibold text-slate-950">{isSignup ? "Create your account" : "Welcome back"}</h2><p className="mt-2 text-sm text-slate-500">{isSignup ? "Set up a demo account in seconds." : "Sign in to continue to your dashboard."}</p><form action={formAction((values) => { const email = values.email.trim().toLowerCase(); let users = records.users || []; if (isSignup && email === DEMO_ADMIN.email) { setMessage("That email is reserved for the seeded demo admin account."); return; } let user = users.find((item) => item.email?.toLowerCase() === email); if (!user && isSignup) { const roles = values.capability === "renter-owner" ? ["renter", "owner"] : ["renter"]; user = { id: makeId("user"), name: values.name, email, phone: values.phone || "", roles, status: "Active", createdAt: isoNow() }; const result = writeUsers([user, ...users]); if (!result.ok) { setMessage(result.message); return; } users = [user, ...users]; setRecords((current) => ({ ...current, users })); } if (!user) { setMessage("No demo account was found for that email. Create an account to continue."); return; } if (user.status === "Suspended") { setMessage("This demo account is suspended. Contact an administrator to restore access."); return; } const roles = normalizeRoles(user); const result = signInAsDemo(user.id); if (!result.ok) { setMessage(result.message); return; } const sessionValue = getCurrentSession().session; setSession(sessionValue); router.replace(safeInternalDestination(nextFromUrl(), roles)); })} className="mt-6 space-y-4">{isSignup && <><Field label="Full name" name="name" required placeholder="Your name"/><Field label="Phone (optional)" name="phone" type="tel" placeholder="+251 …"/><Field label="Account capabilities" name="capability" options={[{label:"Renter",value:"renter"},{label:"Renter + owner",value:"renter-owner"}]}/></>}<Field label="Email address" name="email" type="email" required placeholder="you@example.com"/><Field label="Password" name="password" type="password" required placeholder="Enter any demo password"/><p className="text-xs leading-5 text-slate-500">Demo only. Passwords are never saved; sign-in matches an account by email.</p>{message && <p role="status" className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">{message}</p>}<button className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-orange-600">{isSignup ? "Create account" : "Sign in"}</button></form>{!isSignup && <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-orange-800">Seeded demo administrator</p><p className="mt-1 text-sm text-slate-700">{DEMO_ADMIN.email}</p><button type="button" onClick={enterAdmin} className="mt-3 rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">Continue as demo admin</button><p className="mt-2 text-[11px] leading-4 text-slate-500">Front-end demo access only. No password is stored or checked.</p></div>}{!isSignup && <div className="mt-3 rounded-2xl border border-slate-200 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Seeded renter demo</p><p className="mt-1 text-sm text-slate-700">{DEMO_RENTER.email}</p><p className="text-xs text-slate-500">Use the demo sign-in form to open this account.</p></div>}{!isSignup && <div className="mt-3 rounded-2xl border border-slate-200 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Seeded owner demo</p><p className="mt-1 text-sm text-slate-700">{DEMO_OWNER.email}</p><p className="text-xs text-slate-500">Includes multiple sample vehicles and booking activity.</p></div>}<p className="mt-5 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "New to Sheggar Wheels?"} <Link className="font-semibold text-orange-600" href={`${isSignup?"/signin":"/signup"}${returnTo?`?next=${encodeURIComponent(returnTo)}`:""}`}>{isSignup ? "Sign in" : "Create account"}</Link></p></div></div>;
+      return <div className="mx-auto grid max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:grid-cols-2"><div className="hidden flex-col justify-between bg-cover bg-center p-8 text-white md:flex" style={{ backgroundImage: "linear-gradient(to top, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 0.35)), url('/images/hero-image.jpg')" }}><span className="text-sm font-semibold tracking-[0.18em]">SHEGGAR WHEELS</span><div><p className="text-3xl font-semibold leading-tight">Your next great drive starts here.</p><p className="mt-3 text-sm leading-6 text-slate-300">A more personal way to discover and book premium cars.</p></div><span className="text-xs text-slate-400">Private fleet · Personal service</span></div><div className="p-6 sm:p-9"><h2 className="text-2xl font-semibold text-slate-950">{isSignup ? "Create your account" : "Welcome back"}</h2><p className="mt-2 text-sm text-slate-500">{isSignup ? "Set up a demo account in seconds." : "Sign in to continue to your dashboard."}</p><form action={formAction((values) => { const email = values.email.trim().toLowerCase(); let users = records.users || []; if (isSignup && email === DEMO_ADMIN.email) { setMessage("That email is reserved for the seeded demo admin account."); return; } let user = users.find((item) => item.email?.toLowerCase() === email); if (!user && isSignup) { const roles = values.capability === "renter-owner" ? ["renter", "owner"] : ["renter"]; user = { id: makeId("user"), name: values.name, email, phone: values.phone || "", roles, status: "Active", createdAt: isoNow() }; const result = writeUsers([user, ...users]); if (!result.ok) { setMessage(result.message); return; } users = [user, ...users]; setRecords((current) => ({ ...current, users })); } if (!user) { setMessage("No demo account was found for that email. Create an account to continue."); return; } if (user.status === "Suspended") { setMessage("This demo account is suspended. Contact an administrator to restore access."); return; } const roles = normalizeRoles(user); const result = signInAsDemo(user.id); if (!result.ok) { setMessage(result.message); return; } const sessionValue = getCurrentSession().session; setSession(sessionValue); router.replace(safeInternalDestination(nextFromUrl(), roles)); })} className="mt-6 space-y-4">{isSignup && <><Field label="Full name" name="name" required placeholder="Your name"/><Field label="Phone (optional)" name="phone" type="tel" placeholder="+251 …"/><Field label="Account capabilities" name="capability" options={[{label:"Renter",value:"renter"},{label:"Renter + owner",value:"renter-owner"}]}/></>}<Field label="Email address" name="email" type="email" required placeholder="you@example.com"/><Field label="Password" name="password" type="password" required placeholder="Enter any demo password"/><p className="text-xs leading-5 text-slate-500">Demo only. Passwords are never saved; sign-in matches an account by email.</p>{message && <p role="status" className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">{message}</p>}<button className="w-full rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-orange-600">{isSignup ? "Create account" : "Sign in"}</button></form>{!isSignup && <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-orange-800">Seeded demo administrator</p><p className="mt-1 text-sm text-slate-700">{DEMO_ADMIN.email}</p><button type="button" onClick={enterAdmin} className="mt-3 rounded-lg bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-500">Continue as demo admin</button><p className="mt-2 text-[11px] leading-4 text-slate-500">Front-end demo access only. No password is stored or checked.</p></div>}{!isSignup && <div className="mt-3 rounded-2xl border border-slate-200 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Seeded renter demo</p><p className="mt-1 text-sm text-slate-700">{DEMO_RENTER.email}</p><p className="text-xs text-slate-500">Use the demo sign-in form to open this account.</p></div>}{!isSignup && <div className="mt-3 rounded-2xl border border-slate-200 p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Seeded owner demo</p><p className="mt-1 text-sm text-slate-700">{DEMO_OWNER.email}</p><p className="text-xs text-slate-500">Includes multiple sample vehicles and booking activity.</p></div>}<p className="mt-5 text-center text-sm text-slate-500">{isSignup ? "Already have an account?" : "New to Sheggar Wheels?"} <Link className="font-semibold text-orange-600" href={`${isSignup?"/signin":"/signup"}${returnTo?`?next=${encodeURIComponent(returnTo)}`:""}`}>{isSignup ? "Sign in" : "Create account"}</Link></p></div></div>;
     }
 
     if (routeKey === "/dashboard" || routeKey === "/owner" || routeKey === "/admin") {
@@ -668,7 +649,7 @@ export default function DemoPage({ routeKey, recordId }) {
       const isOwnerBookingRoute = ["/owner/bookings", "/owner/cars/[id]/bookings"].includes(routeKey);
       const ownerRows = allBookings.filter((item) => item.carId === recordId && ownedCarIds.has(item.carId));
       const rows = routeKey === "/owner/bookings" ? ownerBookings : routeKey === "/owner/cars/[id]/bookings" ? ownerRows : renterBookings;
-      return <Panel title="Reservation activity" action={<div className="flex flex-wrap gap-2"><select aria-label="Filter bookings" className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="All">All</option>{["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"].map((status) => <option key={status} value={status}>{displayStatus(status)}</option>)}</select>{routeKey==="/bookings"&&<button onClick={()=>downloadCsv("my-bookings.csv",rows)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}</div>}><DataTable columns={[{key:"id",label:"Booking ID"},{key:"car",label:"Vehicle"},{key:"renter",label:"Renter"},{key:"startDate",label:"Pick-up",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"endDate",label:"Return",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"total",label:"Total",render:(value)=><span>{formatETB(value)}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=>isOwnerBookingRoute?<div className="flex flex-wrap items-center gap-2"><Link className="font-semibold text-orange-600 hover:underline" href={`/owner/bookings/${value}`}>Booking details</Link>{row.status==="requested"&&<><ActionButton tone="positive" onClick={()=>approveBooking(value,rows)}>Approve</ActionButton><ActionButton tone="danger" onClick={()=>transitionBooking(value,"declined",rows)}>Decline</ActionButton></>}{row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}{!['requested','in_progress'].includes(row.status)&&<span className="text-xs font-medium text-slate-500">{({confirmed:"Approved",completed:"Marked returned",reviewed:"Marked returned",declined:"Declined",cancelled:"Cancelled",disputed:"Issue raised",resolved:"Resolved"})[row.status] || "—"}</span>}</div>:<div className="flex flex-wrap gap-3"><Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}`}>Details</Link>{routeKey==="/bookings"&&row.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===value)&&<Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}/review`}>Review</Link>}{routeKey==="/bookings"&&row.status==="requested"&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel request</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)>new Date()&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)<=new Date()&&<ActionButton tone="positive" onClick={()=>transitionBooking(value,"in_progress",rows)}>Start rental</ActionButton>}{routeKey==="/bookings"&&row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}</div>}]} rows={rows.filter((item)=>filter==="All"||item.status===filter)}/></Panel>;
+      return <Panel title="Reservation activity" action={<div className="flex flex-wrap gap-2"><select aria-label="Filter bookings" className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="All">All</option>{["requested", "confirmed", "in_progress", "completed", "reviewed", "declined", "cancelled", "disputed", "resolved"].map((status) => <option key={status} value={status}>{displayStatus(status)}</option>)}</select>{routeKey==="/bookings"&&<button onClick={()=>downloadCsv("my-bookings.csv",rows)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold">Export CSV</button>}</div>}><DataTable columns={[{key:"id",label:"Booking ID"},{key:"car",label:"Vehicle"},{key:"renter",label:"Renter"},{key:"startDate",label:"Pick-up",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"endDate",label:"Return",render:(value)=><time dateTime={value}>{formatDate(value)}</time>},{key:"total",label:"Total",render:(value)=><span>{formatETB(value)}</span>},{key:"status",label:"Status",render:(value)=><Status>{value}</Status>},{key:"id",label:"Actions",render:(value,row)=>isOwnerBookingRoute?<div className="flex flex-wrap items-center gap-2"><Link className="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" href={`/owner/bookings/${value}`}>Booking details</Link>{row.status==="requested"&&<><ActionButton tone="positive" onClick={()=>approveBooking(value,rows)}>Approve</ActionButton><ActionButton tone="danger" onClick={()=>transitionBooking(value,"declined",rows)}>Decline</ActionButton></>}{row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}{!['requested','in_progress'].includes(row.status)&&<span className="text-xs font-medium text-slate-500">{({confirmed:"Approved",completed:"Marked returned",reviewed:"Marked returned",declined:"Declined",cancelled:"Cancelled",disputed:"Issue raised",resolved:"Resolved"})[row.status] || "—"}</span>}</div>:<div className="flex flex-wrap gap-3"><Link className="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" href={`/bookings/${value}`}>Details</Link>{routeKey==="/bookings"&&row.status==="completed"&&!records.reviews?.some((review)=>review.bookingId===value)&&<Link className="font-semibold text-orange-600 hover:underline" href={`/bookings/${value}/review`}>Review</Link>}{routeKey==="/bookings"&&row.status==="requested"&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel request</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)>new Date()&&<ActionButton tone="danger" onClick={()=>transitionBooking(value,"cancelled",rows)}>Cancel</ActionButton>}{routeKey==="/bookings"&&row.status==="confirmed"&&new Date(row.startDate)<=new Date()&&<ActionButton tone="positive" onClick={()=>transitionBooking(value,"in_progress",rows)}>Start rental</ActionButton>}{routeKey==="/bookings"&&row.status==="in_progress"&&<><ActionButton tone="positive" onClick={()=>transitionBooking(value,"completed",rows)}>Mark returned</ActionButton><ActionButton tone="danger" onClick={()=>raiseBookingIssue(value,rows)}>Raise issue</ActionButton></>}</div>}]} rows={rows.filter((item)=>filter==="All"||item.status===filter)}/></Panel>;
     }
 
     if (routeKey === "/owner/bookings/[id]") {
@@ -690,8 +671,8 @@ export default function DemoPage({ routeKey, recordId }) {
       const dates = draft.selectedDates;
       const car = allCars.find((item) => item.id === checkout.carId);
       const days = dates.startDate && dates.endDate ? Math.max(0, Math.ceil((new Date(dates.endDate + "T00:00:00Z") - new Date(dates.startDate + "T00:00:00Z")) / 86400000)) : 0;
-      const pricePerDay = Number(checkout.price || car?.pricePerDay || car?.price || 0);
-      const serviceFee = 35;
+      const pricePerDay = Number(car?.pricePerDay ?? car?.price ?? checkout.price ?? 0);
+      const serviceFee = 3500;
       const total = pricePerDay * days + serviceFee;
       const updateDraftLocation = (key, point) => {
         const nextDraft = { ...draft, [key]: point };
@@ -721,12 +702,12 @@ export default function DemoPage({ routeKey, recordId }) {
       };
       return <div className="grid gap-5 xl:grid-cols-[1.3fr_0.8fr]">
         <div className="space-y-5">
-          <Panel title="Trip details"><div className="grid gap-4 sm:grid-cols-2"><Info label="Vehicle" value={checkout.car || car?.name || "Vehicle"}/><Info label="Pick-up" value={dates.startDate}/><Info label="Return" value={dates.endDate}/><Info label="Pick-up location" value={car?.location || "To be confirmed"}/><Info label="Rental days" value={String(days)}/></div></Panel>
+          <Panel title="Trip details"><div className="grid gap-4 sm:grid-cols-2"><Info label="Vehicle" value={checkout.car || car?.name || "Vehicle"}/><Info label="Pick-up" value={dates.startDate}/><Info label="Return" value={dates.endDate}/><Info label="Pick-up location" value={draft.pickupLocation ? draft.pickupLocation.label || "Selected on map" : car?.location || "To be confirmed"}/><Info label="Rental days" value={String(days)}/></div></Panel>
           <Panel title="Set pick-up and drop-off locations"><p className="text-sm leading-6 text-slate-600">Choose a point type, then click the map to place its marker. You can edit each location’s label below.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>setLocationTarget("pickupLocation")} aria-pressed={locationTarget==="pickupLocation"} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${locationTarget==="pickupLocation"?"border-blue-300 bg-blue-50 text-blue-800":"border-slate-200 text-slate-600"}`}>Set pick-up point</button><button type="button" onClick={()=>setLocationTarget("dropoffLocation")} aria-pressed={locationTarget==="dropoffLocation"} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${locationTarget==="dropoffLocation"?"border-orange-300 bg-orange-50 text-orange-800":"border-slate-200 text-slate-600"}`}>Set drop-off point</button></div><CarLocationLeafletMap latitude={car?.latitude} longitude={car?.longitude} pickupLocation={draft.pickupLocation} dropoffLocation={draft.dropoffLocation} selectionTarget={locationTarget} onLocationSelect={(target, point)=>updateDraftLocation(target,point)}/><div className="mt-4 grid gap-3 sm:grid-cols-2">{[["Pick-up location", "pickupLocation"],["Drop-off location", "dropoffLocation"]].map(([label,key])=><label key={key} className="block text-sm font-medium text-slate-700">{label}<input className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-400" value={draft[key]?.label || ""} onChange={(event)=>updateDraftLocation(key,{...(draft[key]||{latitude:null,longitude:null}),label:event.target.value})} placeholder="Click the map to choose a point" /></label>)}</div></Panel>
           <Panel title="Demo payment"><p className="text-sm leading-6 text-slate-600">This is a simulated payment step. No card details or payment credentials are requested or stored.</p></Panel>
         </div>
         <Panel title="Price summary">
-          <div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-slate-500">{pricePerDay} × {days} days</span><strong>{"$" + (pricePerDay * days).toLocaleString("en-US")}</strong></div><div className="flex justify-between"><span className="text-slate-500">Service fee</span><strong>{"$" + serviceFee}</strong></div><div className="flex justify-between border-t border-slate-100 pt-3 text-base"><span>Total</span><strong>{"$" + total.toLocaleString("en-US")}</strong></div></div>
+          <div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-slate-500">{formatETB(pricePerDay)} × {days} days</span><strong>{formatETB(pricePerDay * days)}</strong></div><div className="flex justify-between"><span className="text-slate-500">Service fee</span><strong>{formatETB(serviceFee)}</strong></div><div className="flex justify-between border-t border-slate-100 pt-3 text-base"><span>Total</span><strong>{formatETB(total)}</strong></div></div>
           <p className="my-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">Demo only · no charge will be made.</p>
           <button onClick={finishCheckout} className="w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white hover:bg-orange-400">Complete demo payment &amp; request</button>
           {message && <p role="status" className="mt-3 text-sm text-slate-700">{message}</p>}
@@ -769,7 +750,7 @@ export default function DemoPage({ routeKey, recordId }) {
         { label: "Model", name: "model", required: true, placeholder: "e.g. R8 V10", defaultValue: car.model },
         { label: "Year", name: "year", type: "number", min: "1990", defaultValue: car.year || "2024" },
         { label: "Category", name: "category", defaultValue: car.category || "Luxury", options: [{ label: "Luxury", value: "Luxury" }, { label: "Exotic", value: "Exotic" }, { label: "Premium SUV", value: "Premium SUV" }, { label: "Sedan", value: "Sedan" }] },
-        { label: "Daily rate (ETB)", name: "price", type: "number", required: true, min: "1", placeholder: "150", defaultValue: car.price },
+        { label: "Daily rate (ETB)", name: "price", type: "number", required: true, min: "1", placeholder: "15000", defaultValue: car.price },
         { label: "Seats", name: "seats", type: "number", min: "1", defaultValue: car.seats || "5" },
         { label: "Transmission", name: "transmission", defaultValue: car.transmission || "Automatic", options: [{ label: "Automatic", value: "Automatic" }, { label: "Manual", value: "Manual" }] },
         { label: "Pickup location", name: "location", required: true, placeholder: "City or airport", defaultValue: car.location },
@@ -841,7 +822,27 @@ export default function DemoPage({ routeKey, recordId }) {
       if (!dispute) return <Panel title="Dispute not found"><p className="text-sm text-slate-600">This dispute is not in the demo records.</p></Panel>;
       const linkedBooking = allBookings.find((item) => item.id === dispute.bookingId);
       const canResolve = dispute.status === "open" && linkedBooking?.status === "disputed";
-      return <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]"><Panel title="Case summary"><div className="grid gap-4 sm:grid-cols-2"><Info label="Case" value={dispute.id}/><Info label="Booking" value={dispute.bookingId}/><Info label="Issue type" value={dispute.reason}/><Info label="Status" value={dispute.status}/></div><div className="mt-5 rounded-xl bg-slate-50 p-4"><p className="text-sm font-semibold">Renter report</p><p className="mt-2 text-sm leading-6 text-slate-600">{dispute.description}</p></div>{dispute.resolutionNotes&&<p className="mt-4 text-sm text-slate-600">Resolution notes: {dispute.resolutionNotes}</p>}</Panel>{canResolve?<FormCard title="Resolution notes" fields={[{label:"Resolution",name:"resolution",options:[{label:"Choose an outcome",value:""},{label:"Resolved in renter’s favor",value:"Renter resolution"},{label:"Resolved in owner’s favor",value:"Owner resolution"},{label:"No action required",value:"No action"}]},{label:"Notes",name:"notes",type:"textarea",required:true,full:true}]} message={message} submitLabel="Record resolution" onSubmit={formAction((values)=>{if(updateCollectionRecord("disputes",recordId,{resolutionNotes:values.resolution + ": " + values.notes,resolvedBy:session.userId,status:"resolved",resolvedAt:isoNow()},disputeRows))transitionBooking(dispute.bookingId,"resolved");})}/>:<Panel title="Workflow closed"><p className="text-sm text-slate-600">This dispute is no longer open for resolution.</p></Panel>}</div>;
+      const reporter = userRows.find((user) => user.id === dispute.reporterId);
+      const reportLabel = dispute.reporterRole === "owner" ? "Owner report" : "Renter report";
+      return <div className="grid gap-5 xl:grid-cols-[1fr_0.8fr]">
+        <Panel title="Case summary">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Info label="Case" value={dispute.id}/>
+            <Info label="Booking" value={dispute.bookingId}/>
+            <Info label="Issue type" value={dispute.reason}/>
+            <Info label="Status" value={dispute.status}/>
+            {reporter && <Info label="Reported by" value={`${reporter.name} (${dispute.reporterRole || "renter"})`}/>}
+          </div>
+          <div className="mt-5 rounded-xl bg-slate-50 p-4">
+            <p className="text-sm font-semibold">{reportLabel}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{dispute.description}</p>
+          </div>
+          {dispute.resolutionNotes && <p className="mt-4 text-sm text-slate-600">Resolution notes: {dispute.resolutionNotes}</p>}
+        </Panel>
+        {canResolve
+          ? <FormCard title="Resolution notes" fields={[{label:"Resolution",name:"resolution",options:[{label:"Choose an outcome",value:""},{label:"Resolved in renter’s favor",value:"Renter resolution"},{label:"Resolved in owner’s favor",value:"Owner resolution"},{label:"No action required",value:"No action"}]},{label:"Notes",name:"notes",type:"textarea",required:true,full:true}]} message={message} submitLabel="Record resolution" onSubmit={formAction((values)=>{if(updateCollectionRecord("disputes",recordId,{resolutionNotes:values.resolution + ": " + values.notes,resolvedBy:session.userId,status:"resolved",resolvedAt:isoNow()},disputeRows))transitionBooking(dispute.bookingId,"resolved");})}/>
+          : <Panel title="Workflow closed"><p className="text-sm text-slate-600">This dispute is no longer open for resolution.</p></Panel>}
+      </div>;
     }
 
     if (routeKey === "/admin/announcements") return <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]"><FormCard title="New announcement" description="Share a clear update with renters and owners." fields={[{label:"Announcement title",name:"title",required:true,placeholder:"A short, helpful headline",full:true},{label:"Audience",name:"audience",options:[{label:"Everyone",value:"Everyone"},{label:"Renters",value:"Renters"},{label:"Owners",value:"Owners"}]},{label:"Publish date",name:"date",type:"date"},{label:"Message",name:"message",type:"textarea",required:true,full:true}]} message={message} submitLabel="Publish announcement" onSubmit={formAction((values)=>saveRecord("announcements",{id:makeId("announcement"),active:true,status:"Published",createdAt:isoNow(),createdBy:session.userId,...values}))}/><Panel title="Published announcements"><div className="space-y-3">{announcementRows.filter((item)=>item.active!==false).length?announcementRows.filter((item)=>item.active!==false).map((item)=><div key={item.id} className="rounded-xl border border-slate-100 p-4"><div className="flex justify-between gap-2"><strong>{item.title}</strong><Status>{item.status}</Status></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p><ActionButton className="mt-3" tone="danger" onClick={()=>updateCollectionRecord("announcements",item.id,{active:false,status:"Inactive"},announcementRows)}>Deactivate</ActionButton></div>):<EmptyState title="No active announcements" text="Published updates will appear here."/>}</div></Panel></div>;
@@ -895,19 +896,23 @@ export default function DemoPage({ routeKey, recordId }) {
     return <div className="grid gap-5 md:grid-cols-2"><Panel title="Welcome"><p className="text-sm leading-6 text-slate-600">This page is ready for your Sheggar Wheels workflow. Use the navigation to continue.</p><div className="mt-4 flex flex-wrap gap-2"><ButtonLink href="/cars">Browse cars</ButtonLink><ButtonLink href="/dashboard" secondary>Dashboard</ButtonLink></div></Panel><Panel title="Your session"><p className="text-sm text-slate-500">{session.userId ? `Signed in as ${session.metadata?.name || "demo user"}` : "You are browsing as a guest."}</p></Panel></div>;
   }
 
-  if (!isPublicRoute && !authReady) {
-    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-medium text-slate-500">Checking your demo session…</div>;
-  }
+  const loadingVariant = routeKey === "/cars/[id]"
+    ? "detail"
+    : routeKey === "/checkout"
+      ? "checkout"
+      : ["/signin", "/signup", "/owner/cars/new", "/owner/cars/[id]/edit"].includes(routeKey)
+        ? "form"
+        : "workspace";
   if (authRedirecting) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-medium text-slate-500">Taking you to sign in…</div>;
   }
   if ((!isPublicRoute && accessError) || accountSuspended) {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"><span className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Demo access</span><h1 className="mt-3 text-2xl font-semibold text-slate-950">{accountSuspended ? "Account access is suspended" : "This area needs a different role"}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{accountSuspended ? "This demo account is suspended. No demo actions are available." : accessError}</p>{requiredRole === "owner" && !accountSuspended && <button onClick={()=>{const access=requireRole("renter");if(!access.ok){setMessage(access.message);return;}const roles=[...new Set([...normalizeRoles(access.user),"renter","owner"])];const nextSession={...session,metadata:{...session.metadata,roles}};const updatedUsers=(records.users||[]).map((user)=>user.id===session.userId?{...user,roles}:user);const savedUsers=writeUsers(updatedUsers);const savedSession=writeSession(nextSession);if(savedUsers.ok&&savedSession.ok){setRecords((value)=>({...value,users:updatedUsers}));setSession(nextSession);}else setMessage(savedUsers.message||savedSession.message);}} className="mt-5 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600">Enable owner capabilities</button>}{message&&<p className="mt-3 text-sm text-rose-700">{message}</p>}<div className="mt-5 flex gap-3"><ButtonLink href="/">Return home</ButtonLink><ButtonLink href="/signin" secondary>Switch account</ButtonLink></div><p className="mt-5 text-xs leading-5 text-slate-400">These role checks are for the front-end demo only and do not provide real security.</p></section></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"><span className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">Demo access</span><h1 className="mt-3 text-2xl font-semibold text-slate-950">{accountSuspended ? "Account access is suspended" : "This area needs a different role"}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{accountSuspended ? "This demo account is suspended. No demo actions are available." : accessError}</p>{message&&<p className="mt-3 text-sm text-rose-700">{message}</p>}<div className="mt-5 flex gap-3"><ButtonLink href="/">Return home</ButtonLink><ButtonLink href="/signin" secondary>Switch account</ButtonLink></div><p className="mt-5 text-xs leading-5 text-slate-400">These role checks are for the front-end demo only and do not provide real security.</p></section></main>;
   }
 
   if (routeKey === "/cars/[id]" || routeKey === "/checkout") {
     // These focused renter flows keep the public navigation lightweight.
-    return <div className="min-h-screen bg-slate-50"><PublicHeader session={session}/><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"><PageHeading title={title} description={description}/>{storageRecovery && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{storageRecovery}</div>}{renderContent()}</main></div>;
+    return <div className="min-h-screen bg-slate-50"><PublicHeader session={session}/><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"><PageHeading title={title} description={description}/>{storageRecovery && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{storageRecovery}</div>}{authReady ? renderContent() : <DataLoadingSkeleton variant={loadingVariant}/>}</main></div>;
   }
 
   const crumbItems = routeKey.split("/").filter(Boolean);
@@ -915,77 +920,75 @@ export default function DemoPage({ routeKey, recordId }) {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <PublicHeader session={session}/>
       <div className="mx-auto flex max-w-[1500px]">
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-6 lg:block">
+        {sidebarVisible && <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-6 lg:block" id="workspace-sidebar">
           <p className="px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{workspaceLabel} workspace</p>
           <nav aria-label={`${workspaceLabel} navigation`} className="mt-3 space-y-1">{nav.map(([label,href])=><Link key={label} href={href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition", routeKey===href?"bg-orange-50 text-orange-700":"text-slate-600 hover:bg-slate-50 hover:text-slate-950")}><span className="w-5 text-center text-base">{label==="Overview"?"⌂":label.includes("car")||label.includes("Fleet")?"◈":label.includes("Booking")?"▤":label.includes("Earning")?"$":label.includes("Dispute")?"!":label.includes("Review")?"☆":"◦"}</span>{label}</Link>)}</nav>
-          {role !== "admin" && !isAdminCarsPage && <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white"><p className="text-sm font-semibold">Need a hand?</p><p className="mt-1 text-xs leading-5 text-slate-300">Our concierge team is here to help with your next step.</p><Link href="/bookings" className="mt-3 inline-block text-xs font-semibold text-orange-300">Visit support →</Link></div>}
+        </aside>}
+        {mobileSidebarOpen && <button aria-label="Close workspace sidebar" className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden" onClick={() => setMobileSidebarOpen(false)} type="button" />}
+        <aside
+          aria-label={`${workspaceLabel} workspace sidebar`}
+          className={`fixed bottom-0 left-0 top-16 z-50 w-64 border-r border-slate-200 bg-white px-4 py-6 shadow-xl transition-transform duration-200 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          id="mobile-workspace-sidebar"
+          inert={!mobileSidebarOpen}
+        >
+          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{workspaceLabel} workspace</p>
+          <nav aria-label={`${workspaceLabel} navigation`} className="mt-3 space-y-1">{nav.map(([label,href])=><Link key={label} href={href} onClick={() => setMobileSidebarOpen(false)} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition", routeKey===href?"bg-orange-50 text-orange-700":"text-slate-600 hover:bg-slate-50 hover:text-slate-950")}><span className="w-5 text-center text-base">{label==="Overview"?"⌂":label.includes("car")||label.includes("Fleet")?"◈":label.includes("Booking")?"▤":label.includes("Earning")?"$":label.includes("Dispute")?"!":label.includes("Review")?"☆":"◦"}</span>{label}</Link>)}</nav>
         </aside>
+        <button
+          aria-controls="mobile-workspace-sidebar"
+          aria-expanded={mobileSidebarOpen}
+          aria-label={mobileSidebarOpen ? "Close workspace sidebar" : "Open workspace sidebar"}
+          className={`fixed top-1/2 z-[60] inline-flex h-12 w-8 -translate-y-1/2 items-center justify-center rounded-r-lg border border-l-0 border-orange-200 bg-white text-xl font-bold text-orange-600 shadow-md transition-all lg:hidden ${mobileSidebarOpen ? "left-64" : "left-0"}`}
+          onClick={() => setMobileSidebarOpen((open) => !open)}
+          type="button"
+        >
+          <span aria-hidden="true">{mobileSidebarOpen ? "←" : "→"}</span>
+        </button>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {issueRequest && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
+            <section aria-labelledby="rental-issue-title" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6" role="dialog">
+              <h2 className="text-lg font-semibold text-slate-950" id="rental-issue-title">Describe the rental issue</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Provide details so the admin can understand and resolve the issue.</p>
+              <form className="mt-4 space-y-4" onSubmit={submitBookingIssue}>
+                <label className="block text-sm font-medium text-slate-700" htmlFor="rental-issue-description">
+                  Issue description
+                  <textarea
+                    autoFocus
+                    className="mt-1.5 min-h-32 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                    id="rental-issue-description"
+                    onChange={(event) => setIssueDescription(event.target.value)}
+                    placeholder="Explain what happened and what needs attention."
+                    required
+                    value={issueDescription}
+                  />
+                </label>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" onClick={() => setIssueRequest(null)} type="button">Cancel</button>
+                  <button className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400" type="submit">Send to admin</button>
+                </div>
+              </form>
+            </section>
+          </div>}
+          <div className="mb-4 hidden justify-end lg:flex">
+            <button
+              aria-controls="workspace-sidebar"
+              aria-expanded={sidebarVisible}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+              onClick={() => setSidebarVisible((visible) => !visible)}
+              type="button"
+            >
+              {sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+            </button>
+          </div>
           <div className="mb-5 flex items-center gap-2 text-xs font-medium text-slate-400"><Link href="/" className="hover:text-orange-600">Home</Link>{crumbItems.map((part,index)=><span key={`${part}-${index}`} className="flex items-center gap-2"><span>/</span><span className={index===crumbItems.length-1?"text-slate-600":""}>{part.replaceAll("[id]",recordId||"detail").replaceAll("-"," ")}</span></span>)}</div>
           <PageHeading title={title} description={description}/>
           {storageRecovery && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{storageRecovery}</div>}
           {role === "admin" && <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">Admin access in this project is a seeded front-end demo role. These checks do not provide real security.</div>}
-          <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">{nav.map(([label,href])=><Link key={label} href={href} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">{label}</Link>)}</div>
           {message && !["/cars","/cars/[id]","/checkout","/signin","/signup"].includes(routeKey) && <div role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div>}
-          {renderContent()}
+          {authReady ? renderContent() : <DataLoadingSkeleton variant={loadingVariant}/>}
           <footer className="mt-10 flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5 text-xs text-slate-400"><span>© 2026 Sheggar Wheels · Demo data</span><span>Browser-based demo · No payments processed</span></footer>
         </main>
       </div>
     </div>
   );
 }
-
-function PublicHeader({ session }) {
-  const router = useRouter();
-  const roles = normalizeRoles(session.metadata);
-  const accountPath = roles.includes("admin") ? "/admin" : roles.includes("owner") ? "/owner" : "/dashboard";
-  function signOut() {
-    signOutDemo();
-    router.replace("/");
-  }
-  return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8"><Link href="/" className="text-sm font-extrabold tracking-[0.16em] text-slate-950">SHEGGAR <span className="text-orange-500">WHEELS</span></Link><nav className="flex items-center gap-3 sm:gap-6"><Link href="/cars" className="text-sm font-semibold text-slate-600 hover:text-orange-600">Explore cars</Link>{!roles.includes("admin")&&<Link href="/signup" className="hidden text-sm font-semibold text-slate-600 hover:text-orange-600 sm:inline">Become an owner</Link>}{session.userId?<><Link href={accountPath} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">{roles.includes("admin") ? "Dashboard" : "My account"}</Link><button onClick={signOut} className="text-sm font-semibold text-slate-500 hover:text-rose-600">Sign out</button></>:<><Link href="/signin" className="text-sm font-semibold text-slate-600">Sign in</Link><Link href="/signup" className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">Join</Link></>}</nav></div></header>;
-}
-
-function PageHeading({ title, description }) {
-  return <div className="mb-6 flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{title}</h1><p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">{description}</p></div></div>;
-}
-
-function QuickAction({ href, title, text }) {
-  return <Link href={href} className="block rounded-xl border border-slate-100 p-4 transition hover:border-orange-200 hover:bg-orange-50/50"><div className="flex items-center justify-between"><strong className="text-sm text-slate-900">{title}</strong><span className="text-orange-500">→</span></div><p className="mt-1 text-xs leading-5 text-slate-500">{text}</p></Link>;
-}
-
-function Info({ label, value }) {
-  return <div><p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-sm font-semibold text-slate-800">{value || "—"}</p></div>;
-}
-
-function Timeline({ items }) {
-  return <div className="space-y-0">{items.map(([title,text],index)=><div key={title} className="relative flex gap-3 pb-5 last:pb-0"><div className="flex flex-col items-center"><span className={cn("z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",index===0?"bg-orange-100 text-orange-700":"bg-slate-100 text-slate-500")}>{index+1}</span>{index<items.length-1&&<span className="absolute top-7 bottom-0 w-px bg-slate-200"/>}</div><div className="pt-1"><p className="text-sm font-semibold text-slate-800">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{text}</p></div></div>)}</div>;
-}
-
-function RenterTripAlert({ bookings = [] }) { const next = bookings.filter((booking) => ["requested", "confirmed", "in_progress"].includes(booking.status)).sort((a, b) => String(a.startDate || "").localeCompare(String(b.startDate || "")))[0]; return <div className="rounded-xl border border-orange-100 bg-orange-50 p-4"><p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">Trip update</p><p className="mt-1 text-sm font-semibold text-slate-800">{next ? (next.status === "requested" ? "Awaiting owner response" : next.car + " · " + next.startDate) : "No upcoming trips"}</p><p className="mt-1 text-xs leading-5 text-slate-600">{next ? "Booking " + next.id + " · " + displayStatus(next.status) : "Your confirmed and requested bookings will appear here."}</p></div>; }
-
-function CarLocationMap({ location, latitude, longitude }) {
-  const lat = Number(latitude);
-  const lon = Number(longitude);
-  const hasCoordinates = Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lon) && lon >= -180 && lon <= 180 && (latitude !== null && longitude !== null && latitude !== "" && longitude !== "");
-  return <Panel title="Approximate vehicle location"><p className="text-sm text-slate-600">{location || "Location not provided"}</p>{hasCoordinates ? <CarLocationLeafletMap latitude={lat} longitude={lon} location={location}/> : <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">Map preview unavailable. The pickup area is shown above.</p>}<p className="mt-2 text-xs text-slate-400">Approximate seeded location only. Pickup instructions are shared after confirmation.</p></Panel>;
-}
-
-function ReviewAverage({ reviews = [] }) { const average = reviews.length ? (reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length).toFixed(1) : null; return <span className="text-xs text-slate-500">{average ? "Average " + average + " ★" : "No reviews yet"}</span>; }
-
-function CalendarPreview() {
-  return <div className="grid grid-cols-7 gap-1 text-center text-xs">{["M","T","W","T","F","S","S",...Array.from({length:30},(_,i)=>String(i+1))].map((day,index)=><span key={`${day}-${index}`} className={cn("flex h-9 items-center justify-center rounded-lg",index<7?"font-semibold text-slate-400":Number(day)%7===0?"bg-orange-100 font-semibold text-orange-700":"text-slate-600")}>{day}</span>)}</div>;
-}
-
-function EarningsChart({ bookings = [] }) {
-  const now = new Date();
-  const months = Array.from({ length: 12 }, (_, index) => new Date(now.getFullYear(), now.getMonth() - 11 + index, 1));
-  const data = months.map((month) => bookings.filter((booking) => { const date = new Date((booking.startDate || booking.createdAt || "") + "T00:00:00"); return Number.isFinite(date.getTime()) && date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth() && ["confirmed", "in_progress", "completed", "reviewed", "disputed", "resolved"].includes(booking.status); }).reduce((sum, booking) => sum + Number(booking.total || 0), 0));
-  const max = Math.max(1, ...data);
-  return <div className="flex h-48 items-end gap-2 border-b border-slate-100 px-1">{data.map((height,index)=><div key={index} className="group flex h-full flex-1 flex-col justify-end"><div className="rounded-t-md bg-gradient-to-t from-orange-500 to-amber-300 transition group-hover:from-orange-600" style={{height:`${Math.max(4, (height / max) * 100)}%`}}/><span className="py-2 text-center text-[10px] text-slate-400">{months[index].toLocaleDateString("en", { month: "short" })}</span></div>)}</div>;
-}
-
-function EmptyState({ title, text }) {
-  return <div className="rounded-xl border border-dashed border-slate-200 px-5 py-10 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-xl text-orange-600">✦</div><h3 className="mt-3 font-semibold text-slate-900">{title}</h3><p className="mt-1 text-sm text-slate-500">{text}</p></div>;
-}
-

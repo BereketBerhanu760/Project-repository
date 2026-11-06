@@ -1,10 +1,11 @@
 import Link from "next/link";
+import CarCard from "@/components/car-card";
+import LandingHeader from "@/components/landing-header";
+import demoCars from "@/lib/seed-cars";
 
 const benefits = [
   { icon: "verified", label: "Best Price Guarantee", color: "text-emerald-300" },
   { icon: "calendar", label: "Free Cancellation up to 24h", color: "text-sky-300" },
-  { icon: "flight", label: "Contactless Terminal Pickup", color: "text-emerald-300" },
-  { icon: "key", label: "Instant Keyless Access", color: "text-orange-300" },
 ];
 
 function BenefitIcon({ name, className }) {
@@ -57,9 +58,9 @@ function BenefitIcon({ name, className }) {
 export default function HomePage() {
   return (
     <main>
-      <section className="relative -mt-20 w-full overflow-hidden">
+      <section className="relative w-full overflow-hidden">
         <div
-          className="relative flex min-h-[640px] w-full flex-col justify-between bg-cover bg-center lg:min-h-[720px]"
+          className="relative flex min-h-[600px] w-full flex-col justify-between bg-cover bg-center lg:min-h-[720px]"
           style={{
             backgroundImage:
               "url('/images/hero-image.jpg')",
@@ -68,53 +69,10 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/35" />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent" />
 
-          <header className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 pt-6 sm:px-8 md:px-12 lg:px-16">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="text-lg font-bold tracking-[0.16em] text-white">
-                SHEGGAR WHEELS
-              </Link>
-              <span className="rounded-full border border-white/20 bg-slate-900/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-200">Demo data</span>
-            </div>
-            <nav aria-label="Main navigation" className="flex items-center gap-3 sm:gap-6">
-              <Link
-                href="/cars"
-                className="hidden text-sm font-medium text-slate-100 transition hover:text-orange-300 sm:inline"
-              >
-                Browse cars
-              </Link>
-              <Link
-                href="/owner/cars/new"
-                className="hidden text-sm font-medium text-slate-100 transition hover:text-orange-300 md:inline"
-              >
-                List your car
-              </Link>
-              <Link
-                href="/signin"
-                className="rounded-full px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400"
-              >
-                Sign up
-              </Link>
-            </nav>
-          </header>
+          <LandingHeader />
 
-          <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-col justify-center px-6 pt-36 pb-24 sm:px-8 md:px-12 lg:px-16 lg:pt-40 lg:pb-32">
-            <div className="mb-6 flex self-start items-center gap-3 rounded-full border border-white/10 bg-slate-900/70 px-4 py-2 shadow-lg backdrop-blur-md">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-70" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-400" />
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-100 sm:text-sm">
-                Private Fleet Concierge &amp; Airport VIP Network
-              </span>
-            </div>
-
-            <h1 className="mb-6 max-w-4xl text-5xl leading-[1.05] font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
+          <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-col justify-center px-4 pt-32 pb-16 sm:px-8 sm:pt-36 sm:pb-24 md:px-12 lg:px-16 lg:pt-40 lg:pb-32">
+            <h1 className="mb-6 max-w-4xl text-4xl leading-[1.05] font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
               Drive the{" "}
               <span className="text-orange-400 drop-shadow-[0_0_25px_rgba(255,84,76,0.35)]">
                 Exceptional.
@@ -153,6 +111,37 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-8 sm:py-16 md:px-12 lg:px-16">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Find your next drive</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">Explore a selection from the Sheggar Wheels demo fleet.</p>
+          </div>
+          <Link href="/cars" className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600">
+            Browse all cars
+          </Link>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {demoCars.slice(0, 3).map((car) => <CarCard car={car} key={car.id} />)}
+        </div>
+      </section>
+
+      <footer className="bg-slate-950 text-slate-300">
+        <div className="mx-auto grid w-full max-w-[1400px] gap-8 px-4 py-10 sm:px-8 md:grid-cols-2 md:items-end md:px-12 lg:px-16">
+          <div>
+            <Link href="/" className="text-sm font-extrabold tracking-[0.16em] text-white">SHEGGAR <span className="text-orange-400">WHEELS</span></Link>
+          </div>
+          <div className="md:text-right">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Company customer support</p>
+            <div className="mt-2 flex flex-col gap-1 text-sm md:items-end">
+              <a className="transition hover:text-orange-300" href="mailto:owner@sheggarwheels.demo">owner@sheggarwheels.demo</a>
+              <a className="transition hover:text-orange-300" href="tel:+251911000201">+251 911 000 201</a>
+            </div>
+          </div>
+          <p className="border-t border-white/10 pt-5 text-xs text-slate-500 md:col-span-2">© {new Date().getFullYear()} Sheggar Wheels. All rights reserved.</p>
+        </div>
+      </footer>
     </main>
   );
 }
