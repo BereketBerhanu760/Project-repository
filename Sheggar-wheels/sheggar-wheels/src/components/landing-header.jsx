@@ -13,7 +13,6 @@ export default function LandingHeader() {
         <Link href="/" className="text-sm font-bold tracking-[0.12em] text-white sm:text-lg sm:tracking-[0.16em]">
           SHEGGAR WHEELS
         </Link>
-        <span className="hidden rounded-full border border-white/20 bg-slate-900/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-200 sm:inline">Demo data</span>
       </div>
       <div className="ml-auto flex items-center gap-2 md:ml-0">
         <ThemeToggle className="border-white/30 bg-slate-950/30 text-white backdrop-blur-sm hover:bg-white/10" />
