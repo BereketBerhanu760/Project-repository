@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const themes = [
-  { id: "classic", name: "Classic", background: "#0F172A", received: "#334155", sent: "#FF6600", text: "#FFFFFF" },
   { id: "day", name: "Day", background: "#F8FAFC", received: "#FFFFFF", sent: "#FFF0E6", text: "#0F172A" },
   { id: "tinted", name: "Tinted", background: "#1E293B", received: "#475569", sent: "#D95B00", text: "#F8FAFC" },
   { id: "night", name: "Night", background: "#0B0F19", received: "#151C2C", sent: "#FF6600", text: "#F8FAFC" },

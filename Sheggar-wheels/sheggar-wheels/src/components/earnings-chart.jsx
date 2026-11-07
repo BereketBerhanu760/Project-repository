@@ -306,7 +306,7 @@ export default function EarningsChart({ bookings = [] }) {
             return (
               <button
                 aria-label={`${formatPeriod(period, currentRange)}: ${formatETB(amount)}${canDrillDown ? `, expand to ${rangeLabels[currentRange === "monthly" ? "weekly" : currentRange === "weekly" ? "daily" : "hourly"]}` : ""}`}
-                className="group flex h-full min-w-0 flex-1 flex-col justify-end text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                className="earnings-chart-column group flex h-full min-w-0 flex-1 flex-col justify-end text-center focus-visible:outline-2 focus-visible:outline-offset-2"
                 key={`${period.start.toISOString()}-${period.end.toISOString()}`}
                 onClick={() => drillInto(period)}
                 title={`${period.label}: ${formatETB(amount)}${canDrillDown ? " · Click to expand" : ""}`}
@@ -315,7 +315,7 @@ export default function EarningsChart({ bookings = [] }) {
                 <span className="sr-only">{formatETB(amount)}</span>
                 <span
                   aria-hidden="true"
-                  className={`rounded-t-md bg-gradient-to-t from-orange-500 to-amber-300 transition group-hover:from-orange-600 ${amount ? "" : "opacity-30"}`}
+                  className={`earnings-chart-bar rounded-t-md transition ${amount ? "" : "opacity-30"}`}
                   style={{ height: amount ? `${Math.max(4, (amount / max) * 100)}%` : "4%" }}
                 />
                 <span className="py-2 text-[10px] text-slate-400">{period.label}</span>
