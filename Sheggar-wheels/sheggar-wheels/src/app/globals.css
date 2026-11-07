@@ -5,8 +5,16 @@
   color-scheme: light;
   --sw-ink: #020617;
   --sw-muted: #64748b;
-  --sw-brand: #f97316;
+  --accent-primary: #ff6600;
+  --accent-foreground: #ffffff;
+  --sw-brand: var(--accent-primary);
   --sw-page: #f8fafc;
+  --theme-surface: #ffffff;
+  --theme-elevated: #f1f5f9;
+  --theme-border: #e2e8f0;
+  --theme-body: #334155;
+  --theme-heading: #0f172a;
+  --theme-muted: #64748b;
   --sw-font: Arial, Helvetica, sans-serif;
 }
 
@@ -27,6 +35,211 @@ body {
   background: var(--sw-page);
   color: var(--sw-ink);
   font-family: var(--sw-font);
+}
+
+html[data-theme="classic"] {
+  color-scheme: dark;
+  --sw-page: #0f172a;
+  --theme-surface: #1e293b;
+  --theme-elevated: #334155;
+  --theme-border: #475569;
+  --theme-body: #cbd5e1;
+  --theme-heading: #f8fafc;
+  --theme-muted: #94a3b8;
+}
+
+html[data-theme="tinted"] {
+  color-scheme: dark;
+  --sw-page: #1e293b;
+  --theme-surface: #334155;
+  --theme-elevated: #475569;
+  --theme-border: #64748b;
+  --theme-body: #f8fafc;
+  --theme-heading: #f8fafc;
+  --theme-muted: #cbd5e1;
+}
+
+html[data-theme="night"] {
+  color-scheme: dark;
+  --sw-page: #0b0f19;
+  --theme-surface: #151c2c;
+  --theme-elevated: #1e293b;
+  --theme-border: #334155;
+  --theme-body: #cbd5e1;
+  --theme-heading: #f8fafc;
+  --theme-muted: #94a3b8;
+}
+
+html[data-theme="classic"] body,
+html[data-theme="day"] body,
+html[data-theme="tinted"] body,
+html[data-theme="night"] body {
+  background: var(--sw-page);
+  color: var(--theme-body);
+}
+
+html[data-theme="classic"] .bg-slate-50,
+html[data-theme="tinted"] .bg-slate-50,
+html[data-theme="night"] .bg-slate-50,
+html[data-theme="classic"] [class~="hover:bg-slate-50"]:hover,
+html[data-theme="tinted"] [class~="hover:bg-slate-50"]:hover,
+html[data-theme="night"] [class~="hover:bg-slate-50"]:hover {
+  background-color: var(--sw-page);
+}
+
+html[data-theme="classic"] .bg-white,
+html[data-theme="tinted"] .bg-white,
+html[data-theme="night"] .bg-white,
+html[data-theme="classic"] [class~="bg-white/95"],
+html[data-theme="tinted"] [class~="bg-white/95"],
+html[data-theme="night"] [class~="bg-white/95"] {
+  background-color: var(--theme-surface);
+}
+
+html[data-theme="classic"] .bg-slate-100,
+html[data-theme="classic"] .bg-slate-200,
+html[data-theme="tinted"] .bg-slate-100,
+html[data-theme="tinted"] .bg-slate-200,
+html[data-theme="night"] .bg-slate-100,
+html[data-theme="night"] .bg-slate-200,
+html[data-theme="classic"] [class~="hover:bg-slate-100"]:hover,
+html[data-theme="tinted"] [class~="hover:bg-slate-100"]:hover,
+html[data-theme="night"] [class~="hover:bg-slate-100"]:hover {
+  background-color: var(--theme-elevated);
+}
+
+html[data-theme="classic"] .text-slate-950,
+html[data-theme="classic"] .text-slate-900,
+html[data-theme="classic"] .text-slate-800,
+html[data-theme="tinted"] .text-slate-950,
+html[data-theme="tinted"] .text-slate-900,
+html[data-theme="tinted"] .text-slate-800,
+html[data-theme="night"] .text-slate-950,
+html[data-theme="night"] .text-slate-900,
+html[data-theme="night"] .text-slate-800 {
+  color: var(--theme-heading);
+}
+
+html[data-theme="classic"] .text-slate-700,
+html[data-theme="classic"] .text-slate-600,
+html[data-theme="classic"] .text-slate-300,
+html[data-theme="tinted"] .text-slate-700,
+html[data-theme="tinted"] .text-slate-600,
+html[data-theme="tinted"] .text-slate-300,
+html[data-theme="night"] .text-slate-700,
+html[data-theme="night"] .text-slate-600,
+html[data-theme="night"] .text-slate-300 {
+  color: var(--theme-body);
+}
+
+html[data-theme="classic"] .text-slate-500,
+html[data-theme="classic"] .text-slate-400,
+html[data-theme="tinted"] .text-slate-500,
+html[data-theme="tinted"] .text-slate-400,
+html[data-theme="night"] .text-slate-500,
+html[data-theme="night"] .text-slate-400 {
+  color: var(--theme-muted);
+}
+
+.bg-orange-500 {
+  background-color: var(--accent-primary);
+  color: var(--accent-foreground);
+}
+
+[class~="hover:bg-orange-400"]:hover {
+  background-color: var(--accent-primary);
+  color: var(--accent-foreground);
+}
+
+.text-orange-700,
+.text-orange-600,
+.text-orange-500,
+.text-orange-400,
+.text-orange-300 {
+  color: var(--accent-primary);
+}
+
+.border-orange-500,
+.border-orange-400 {
+  border-color: var(--accent-primary);
+}
+
+html[data-theme="classic"] .border-slate-50,
+html[data-theme="classic"] .border-slate-100,
+html[data-theme="classic"] .border-slate-200,
+html[data-theme="tinted"] .border-slate-50,
+html[data-theme="tinted"] .border-slate-100,
+html[data-theme="tinted"] .border-slate-200,
+html[data-theme="night"] .border-slate-50,
+html[data-theme="night"] .border-slate-100,
+html[data-theme="night"] .border-slate-200 {
+  border-color: var(--theme-border);
+}
+
+.bg-orange-50,
+[class~="hover:bg-orange-50"]:hover,
+[class~="focus:ring-orange-100"]:focus {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+.theme-picker-panel {
+  color-scheme: light;
+}
+
+.theme-preset[aria-checked="true"] .theme-preview {
+  border-color: var(--accent-primary);
+}
+
+.theme-radio {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border: 2px solid #cbd5e1;
+  border-radius: 9999px;
+}
+
+.theme-preset[aria-checked="true"] .theme-radio {
+  border-color: var(--accent-primary);
+}
+
+.theme-preset[aria-checked="true"] .theme-radio::after {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: var(--accent-primary);
+  content: "";
+}
+
+.theme-accent-swatch {
+  background: var(--swatch-color);
+}
+
+.theme-accent-swatch[aria-pressed="true"] {
+  border-color: #f8fafc;
+  outline: 2px solid var(--swatch-color);
+  outline-offset: 1px;
+}
+
+.theme-custom-swatch {
+  background: conic-gradient(#ef4444, #f59e0b, #10b981, #007aff, #8b5cf6, #ef4444);
+}
+
+.car-card-badge {
+  border: 1px solid rgb(255 255 255 / 70%);
+  box-shadow: 0 1px 5px rgb(15 23 42 / 35%);
+}
+
+html[data-theme="classic"] .car-card-badge,
+html[data-theme="tinted"] .car-card-badge,
+html[data-theme="night"] .car-card-badge {
+  border-color: var(--theme-border);
+  background-color: var(--theme-elevated);
+  color: var(--theme-heading);
+}
+
+html[data-theme="night"] .car-card-badge {
+  box-shadow: 0 1px 8px rgb(0 0 0 / 65%);
 }
 
 main,

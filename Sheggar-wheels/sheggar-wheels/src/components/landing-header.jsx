@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ThemeToggle from "@/components/theme-toggle";
 
 export default function LandingHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -14,16 +15,19 @@ export default function LandingHeader() {
         </Link>
         <span className="hidden rounded-full border border-white/20 bg-slate-900/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-200 sm:inline">Demo data</span>
       </div>
-      <button
-        aria-controls="landing-navigation"
-        aria-expanded={menuOpen}
-        aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-slate-950/30 text-white backdrop-blur-sm md:hidden"
-        onClick={() => setMenuOpen((open) => !open)}
-        type="button"
-      >
-        <span aria-hidden="true" className="text-xl leading-none">{menuOpen ? "×" : "☰"}</span>
-      </button>
+      <div className="ml-auto flex items-center gap-2 md:ml-0">
+        <ThemeToggle className="border-white/30 bg-slate-950/30 text-white backdrop-blur-sm hover:bg-white/10" />
+        <button
+          aria-controls="landing-navigation"
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-slate-950/30 text-white backdrop-blur-sm md:hidden"
+          onClick={() => setMenuOpen((open) => !open)}
+          type="button"
+        >
+          <span aria-hidden="true" className="text-xl leading-none">{menuOpen ? "×" : "☰"}</span>
+        </button>
+      </div>
       <nav
         aria-label="Main navigation"
         className={`${menuOpen ? "absolute left-4 right-4 top-[calc(100%+0.75rem)] z-[60] flex flex-col rounded-xl border border-white/15 bg-slate-950/95 p-2 shadow-xl backdrop-blur md:static md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0 md:shadow-none" : "hidden md:flex md:items-center"} gap-1 md:gap-6`}

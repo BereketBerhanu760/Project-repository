@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { normalizeRoles } from "@/components/demo-page-utils";
 import { signOut as signOutDemo } from "@/lib/auth";
+import ThemeToggle from "@/components/theme-toggle";
 
 export default function PublicHeader({ session }) {
   const router = useRouter();
@@ -21,16 +22,19 @@ export default function PublicHeader({ session }) {
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="relative mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="text-sm font-extrabold tracking-[0.16em] text-slate-950">SHEGGAR <span className="text-orange-500">WHEELS</span></Link>
-        <button
-          aria-controls="public-navigation"
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-orange-50 md:hidden"
-          onClick={() => setMenuOpen((open) => !open)}
-          type="button"
-        >
-          <span aria-hidden="true" className="text-xl leading-none">{menuOpen ? "×" : "☰"}</span>
-        </button>
+        <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <ThemeToggle />
+          <button
+            aria-controls="public-navigation"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-orange-50 md:hidden"
+            onClick={() => setMenuOpen((open) => !open)}
+            type="button"
+          >
+            <span aria-hidden="true" className="text-xl leading-none">{menuOpen ? "×" : "☰"}</span>
+          </button>
+        </div>
         <nav
           aria-label="Main navigation"
           className={`${menuOpen ? "absolute left-3 right-3 top-[calc(100%+0.5rem)] flex flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-lg md:static md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0 md:shadow-none" : "hidden md:flex md:items-center"} gap-1 md:gap-6`}
